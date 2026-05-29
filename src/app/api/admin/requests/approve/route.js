@@ -25,14 +25,33 @@ export async function POST(req) {
         );
       }
 
+      const requestData = { id: docSnap.id, ...docSnap.data() };
+
       await requestRef.update({
         approvalStatus: decision,
         authorizedAt,
       });
 
       console.log(`[FIREBASE] Solicitação #${id} atualizada para approvalStatus: ${decision}`);
+
+      // Dispatch decision email to the operator
+      try {
+        if (requestData.company?.email) {
+          const { sendOperatorDecisionEmail } = await import("@/lib/brevo");
+          await sendOperatorDecisionEmail({
+            email: requestData.company.email,
+            name: requestData.requestor?.name || "Operador",
+            requestData,
+            decision
+          });
+          console.log(`[EMAIL] E-mail de decisão enviado com sucesso para ${requestData.company.email}`);
+        }
+      } catch (emailErr) {
+        console.error("Falha ao enviar e-mail de decisão para o operador:", emailErr);
+      }
     } else {
       console.log(`[SANDBOX] Admin tomou decisão para #${id}: ${decision}`);
+      console.log(`[MOCK EMAIL SENT] E-mail de decisão enviado para operador com status: ${decision}`);
     }
 
     return NextResponse.json({

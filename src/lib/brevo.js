@@ -282,3 +282,70 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
     pdfBase64,
   });
 }
+
+/**
+ * Sends a notification email to the operator when the admin decides (approves or rejects) a request.
+ */
+export async function sendOperatorDecisionEmail({ email, name, requestData, decision }) {
+  const idShort = requestData.id.slice(-6).toUpperCase();
+  const isApproved = decision === "authorized";
+  const statusLabel = isApproved ? "AUTORIZADA" : "RECUSADA";
+  const subject = `[${statusLabel}] Solicitação de Prorrogação de Horário #${idShort} - SBIZ`;
+
+  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR');
+  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR');
+
+  const statusColor = isApproved ? "#2b8a3e" : "#c92a2a";
+  const statusBg = isApproved ? "#ebfbee" : "#fff5f5";
+  const statusBorder = isApproved ? "#b2f2bb" : "#ffc9c9";
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; color: #333;">
+      <h2 style="color: #0b3c5d; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Status de Solicitação Atualizado</h2>
+      <p>Olá, <strong>${name}</strong>,</p>
+      <p>A gerência da <strong>DNIZ - NAV Brasil</strong> avaliou a sua solicitação de prorrogação de horário para o Aeroporto de Imperatriz (SBIZ).</p>
+      
+      <div style="background-color: ${statusBg}; border: 1px solid ${statusBorder}; border-left: 5px solid ${statusColor}; padding: 15px; margin: 20px 0; border-radius: 4px; color: ${statusColor};">
+        <h4 style="margin: 0 0 5px 0; font-size: 16px;">Sua solicitação foi: <strong>${statusLabel}</strong></h4>
+        <p style="margin: 0; font-size: 14px; color: #555;">
+          ${isApproved 
+            ? "O seu voo foi autorizado para operar durante a prorrogação solicitada." 
+            : "Infelizmente a solicitação de prorrogação de horário não pôde ser autorizada pela gerência neste momento."}
+        </p>
+      </div>
+
+      <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Resumo dos Dados</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; width: 140px; color: #555;">Empresa/Entidade:</td>
+          <td style="padding: 6px 0;">${requestData.company.name}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Aeronave:</td>
+          <td style="padding: 6px 0;">${requestData.aircraft.typeQty}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Piloto:</td>
+          <td style="padding: 6px 0;">${requestData.pilot.name}</td>
+        </tr>
+      </table>
+
+      <p style="margin-top: 20px; font-size: 13px; color: #666;">
+        Você pode acompanhar todas as suas solicitações acessando o <a href="https://altercaohorario.vercel.app/dashboard" style="color: #ef5b25; text-decoration: none; font-weight: bold;">Painel do Operador</a>.
+      </p>
+
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #777; text-align: center; margin: 0;">SBIZ - Sistema de Solicitação de Prorrogação de Horário<br/>NAV Brasil - DNIZ</p>
+    </div>
+  `;
+
+  return sendEmail({
+    to: [{ email, name }],
+    subject,
+    htmlContent,
+  });
+}
