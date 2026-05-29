@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { 
   History, 
   Settings, 
@@ -41,6 +42,7 @@ export default function AdminPage() {
   const [airportAdminEmail, setAirportAdminEmail] = useState("");
   const [emailSubjectPrefix, setEmailSubjectPrefix] = useState("");
   const [customNotes, setCustomNotes] = useState("");
+  const [adminEmails, setAdminEmails] = useState("");
 
   // Fetch requests and settings
   const fetchData = async () => {
@@ -63,6 +65,7 @@ export default function AdminPage() {
       setAirportAdminEmail(s.airportAdminEmail || "");
       setEmailSubjectPrefix(s.emailSubjectPrefix || "");
       setCustomNotes(s.customNotes || "");
+      setAdminEmails(s.adminEmails || "");
       
     } catch (err) {
       console.error("Admin fetch error:", err);
@@ -81,7 +84,7 @@ export default function AdminPage() {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         // Redirect to login if not logged in
         router.push("/login");
@@ -89,12 +92,56 @@ export default function AdminPage() {
         const email = currentUser.email || "";
         const lowerEmail = email.toLowerCase();
         
-        // Define admin email list: Wilkson, Adriano and test email
-        const isAdmin = 
-          lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
-          (lowerEmail.startsWith("adriano.") && lowerEmail.endsWith("@navbrasil.gov.br")) ||
-          lowerEmail === "gernavsbiz@gmail.com" ||
-          lowerEmail === "developer@sbiz.local";
+        // 1. Check if email is the absolute admin (Wilkson)
+        let isAdmin = lowerEmail === "wilkson.carvalho@navbrasil.gov.br";
+
+        // 2. Sandbox/simulation mode fallbacks
+        const isSandbox = !db;
+        if (isSandbox) {
+          isAdmin = 
+            lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
+            lowerEmail === "gernavsbiz@gmail.com" ||
+            lowerEmail === "developer@sbiz.local";
+        }
+
+        // 3. Dynamic check in Firestore (settings list and profile roles)
+        if (!isAdmin && db) {
+          try {
+            // First check config/settings for dynamic adminEmails configuration list
+            const settingsRef = doc(db, "config", "settings");
+            const settingsSnap = await getDoc(settingsRef);
+            if (settingsSnap.exists()) {
+              const settingsData = settingsSnap.data();
+              const allowedAdminsStr = settingsData.adminEmails || "";
+              const allowedAdmins = allowedAdminsStr
+                .split(/[,;]/)
+                .map(e => e.trim().toLowerCase())
+                .filter(e => e.length > 0);
+
+              if (allowedAdmins.includes(lowerEmail)) {
+                isAdmin = true;
+              }
+            }
+          } catch (settingsErr) {
+            console.error("Error reading adminEmails settings from Firestore:", settingsErr);
+          }
+
+          // Fallback to checking profile role as secondary authority
+          if (!isAdmin) {
+            try {
+              const profileRef = doc(db, "profiles", currentUser.uid);
+              const profileSnap = await getDoc(profileRef);
+              if (profileSnap.exists()) {
+                const profileData = profileSnap.data();
+                if (profileData.role === "admin") {
+                  isAdmin = true;
+                }
+              }
+            } catch (profileErr) {
+              console.error("Error checking admin profile role in Firestore:", profileErr);
+            }
+          }
+        }
 
         if (isAdmin) {
           setAuthorized(true);
@@ -123,7 +170,8 @@ export default function AdminPage() {
         body: JSON.stringify({
           airportAdminEmail,
           emailSubjectPrefix,
-          customNotes
+          customNotes,
+          adminEmails
         })
       });
 
@@ -529,6 +577,21 @@ export default function AdminPage() {
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
                   E-mails oficiais dos destinatários da NAV Brasil - DNIZ que receberão as solicitações prontas para cobrança (separe múltiplos por vírgula).
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">E-mails de Administradores (Permissão de Acesso - separe por vírgula)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="adriano.matos@navbrasil.gov.br, gernavsbiz@gmail.com"
+                  value={adminEmails}
+                  onChange={e => setAdminEmails(e.target.value)}
+                  disabled={settingsLoading || loading}
+                />
+                <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                  E-mails dos usuários habilitados a acessar o Painel Administrativo e tomar decisões de aprovação. O e-mail <strong>wilkson.carvalho@navbrasil.gov.br</strong> é administrador absoluto e sempre terá acesso, mesmo que não listado.
                 </span>
               </div>
 
