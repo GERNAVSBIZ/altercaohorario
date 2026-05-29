@@ -82,7 +82,7 @@ export async function sendUserConfirmationEmail({ email, name, confirmationUrl, 
       
       <div style="background-color: #f9f9f9; border-left: 4px solid #ef5b25; padding: 15px; margin: 20px 0; border-radius: 0 4px 4px 0;">
         <h4 style="margin: 0 0 10px 0; color: #0b3c5d;">IMPORTANTE: Ação Necessária</h4>
-        <p style="margin: 0; font-size: 14px;">Para que sua solicitação seja encaminhada e processada oficialmente pela administração do aeroporto, você precisa validar as informações clicando no botão abaixo:</p>
+        <p style="margin: 0; font-size: 14px;">Para que sua solicitação seja encaminhada e processada oficialmente pela gerência da DNIZ - NAV Brasil, você precisa validar as informações clicando no botão abaixo:</p>
         <div style="text-align: center; margin-top: 20px;">
           <a href="${confirmationUrl}" style="background-color: #ef5b25; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Confirmar e Enviar Solicitação</a>
         </div>
