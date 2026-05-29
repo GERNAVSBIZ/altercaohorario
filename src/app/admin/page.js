@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { 
   History, 
   Settings, 
@@ -21,6 +23,10 @@ import {
 export default function AdminPage() {
   const router = useRouter();
   
+  // Auth states
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+
   // Navigation & Data States
   const [activeTab, setActiveTab] = useState("requests"); // "requests" | "settings"
   const [loading, setLoading] = useState(true);
@@ -67,8 +73,41 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!auth) {
+      // Sandbox mode: permit access
+      setAuthLoading(false);
+      setAuthorized(true);
+      fetchData();
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        // Redirect to login if not logged in
+        router.push("/login");
+      } else {
+        const email = currentUser.email || "";
+        const lowerEmail = email.toLowerCase();
+        
+        // Define admin email list: Wilkson, Adriano and test email
+        const isAdmin = 
+          lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
+          (lowerEmail.startsWith("adriano.") && lowerEmail.endsWith("@navbrasil.gov.br")) ||
+          lowerEmail === "gernavsbiz@gmail.com" ||
+          lowerEmail === "developer@sbiz.local";
+
+        if (isAdmin) {
+          setAuthorized(true);
+          fetchData();
+        } else {
+          setAuthorized(false);
+        }
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   // Handle settings update
   const handleSaveSettings = async (e) => {
@@ -161,6 +200,63 @@ export default function AdminPage() {
       r.aircraft?.typeQty?.toLowerCase().includes(query)
     );
   });
+
+  const handleLogout = async () => {
+    if (!auth) {
+      router.push("/login");
+      return;
+    }
+    try {
+      await signOut(auth);
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="container" style={{ justifyContent: "center", alignItems: "center" }}>
+        <span className="spinner" style={{ width: "40px", height: "40px" }}></span>
+        <p style={{ marginTop: "16px", color: "var(--text-dark-muted)" }}>Verificando credenciais...</p>
+      </div>
+    );
+  }
+
+  if (!authorized) {
+    return (
+      <div className="container" style={{ justifyContent: "center", alignItems: "center" }}>
+        <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "64px",
+            height: "64px",
+            borderRadius: "50%",
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "2px solid var(--error)",
+            color: "var(--error)",
+            marginBottom: "20px"
+          }}>
+            <AlertTriangle size={32} />
+          </div>
+          <h2 style={{ fontSize: "22px", color: "white", marginBottom: "12px" }}>Acesso Restrito</h2>
+          <p style={{ color: "var(--text-dark-muted)", fontSize: "14px", lineHeight: "1.5", marginBottom: "28px" }}>
+            Seu e-mail <strong>{auth?.currentUser?.email}</strong> não possui privilégios de administrador para acessar o Painel de Operações.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <button onClick={() => router.push("/dashboard")} className="btn">
+              Ir para o Dashboard
+            </button>
+            <button onClick={handleLogout} className="btn btn-secondary" style={{ marginTop: 0 }}>
+              Entrar com outra conta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
