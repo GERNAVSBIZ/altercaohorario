@@ -18,7 +18,8 @@ import {
   CircleAlert,
   CheckCircle2,
   History,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -56,6 +57,7 @@ export default function DashboardPage() {
   const [requestorRole, setRequestorRole] = useState("");
   const [requestorBillingEmail, setRequestorBillingEmail] = useState("");
   const [serviceType, setServiceType] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [pilotName, setPilotName] = useState("");
   const [pilotAnac, setPilotAnac] = useState("");
@@ -122,6 +124,7 @@ export default function DashboardPage() {
       // Firebase not configured - running in sandbox/mock mode
       setAuthLoading(false);
       setUser({ email: "developer@sbiz.local", uid: "mock-user-123", isMock: true });
+      setIsAdmin(true);
       return;
     }
 
@@ -130,6 +133,11 @@ export default function DashboardPage() {
         router.push("/login");
       } else {
         setUser(currentUser);
+        
+        // 1. Initial admin check based on email
+        const lowerEmail = (currentUser.email || "").toLowerCase();
+        let userIsAdmin = lowerEmail === "wilkson.carvalho@navbrasil.gov.br";
+
         // Load profile from Firestore
         if (db) {
           try {
@@ -150,14 +158,43 @@ export default function DashboardPage() {
               setPilotName(data.pilotName || "");
               setPilotAnac(data.pilotAnac || "");
               setAircraftTypeQty(data.aircraftTypeQty || "");
+
+              if (data.role === "admin") {
+                userIsAdmin = true;
+              }
             } else {
               // Pre-fill email with authenticated user email
               setCompanyEmail(currentUser.email || "");
             }
+
+            // Check config settings for admin emails
+            if (!userIsAdmin) {
+              const settingsRef = doc(db, "config", "settings");
+              const settingsSnap = await getDoc(settingsRef);
+              if (settingsSnap.exists()) {
+                const settingsData = settingsSnap.data();
+                const allowedAdminsStr = settingsData.adminEmails || "";
+                const allowedAdmins = allowedAdminsStr
+                  .split(/[,;]/)
+                  .map(e => e.trim().toLowerCase())
+                  .filter(e => e.length > 0);
+                if (allowedAdmins.includes(lowerEmail)) {
+                  userIsAdmin = true;
+                }
+              }
+            }
           } catch (err) {
             console.error("Error loading profile:", err);
           }
+        } else {
+          // Sandbox mode fallbacks
+          userIsAdmin = 
+            lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
+            lowerEmail === "gernavsbiz@gmail.com" ||
+            lowerEmail === "developer@sbiz.local";
         }
+
+        setIsAdmin(userIsAdmin);
       }
       setAuthLoading(false);
     });
@@ -357,10 +394,23 @@ export default function DashboardPage() {
           <PlaneTakeoff size={20} style={{ color: "var(--accent)", transform: "rotate(45deg)" }} />
           <span style={{ fontWeight: 800, fontSize: "16px", fontFamily: "var(--font-sans)" }}>SBIZ NAVMANAGER</span>
         </div>
-        <button onClick={handleLogout} className="logout-btn">
-          <LogOut size={16} />
-          <span>Sair</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {isAdmin && (
+            <button 
+              type="button"
+              onClick={() => router.push("/admin")} 
+              className="logout-btn" 
+              style={{ color: "var(--accent)", borderColor: "rgba(239, 91, 37, 0.2)", backgroundColor: "rgba(239, 91, 37, 0.05)", display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <ShieldCheck size={16} />
+              <span>Painel Admin</span>
+            </button>
+          )}
+          <button onClick={handleLogout} className="logout-btn">
+            <LogOut size={16} />
+            <span>Sair</span>
+          </button>
+        </div>
       </header>
 
       <main className="container" style={{ minHeight: "auto", padding: "16px 0 60px 0" }}>
