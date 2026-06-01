@@ -7,7 +7,8 @@ import {
   createUserWithEmailAndPassword, 
   onAuthStateChanged 
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { Plane, Lock, Mail, UserPlus, LogIn } from "lucide-react";
 
 export default function LoginPage() {
@@ -19,12 +20,70 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const checkAdminAndRedirect = async (user) => {
+    if (!user) return;
+    const email = user.email || "";
+    const lowerEmail = email.toLowerCase();
+    
+    let isAdmin = lowerEmail === "wilkson.carvalho@navbrasil.gov.br";
+
+    if (!db) {
+      // Sandbox mode check
+      isAdmin = 
+        lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
+        lowerEmail === "gernavsbiz@gmail.com" ||
+        lowerEmail === "developer@sbiz.local";
+      
+      if (isAdmin) {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+      return;
+    }
+
+    try {
+      if (!isAdmin) {
+        const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data();
+          if (profileData.role === "admin") {
+            isAdmin = true;
+          }
+        }
+      }
+
+      if (!isAdmin) {
+        const settingsSnap = await getDoc(doc(db, "config", "settings"));
+        if (settingsSnap.exists()) {
+          const settingsData = settingsSnap.data();
+          const allowedAdminsStr = settingsData.adminEmails || "";
+          const allowedAdmins = allowedAdminsStr
+            .split(/[,;]/)
+            .map(e => e.trim().toLowerCase())
+            .filter(e => e.length > 0);
+          if (allowedAdmins.includes(lowerEmail)) {
+            isAdmin = true;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error checking admin privilege during redirect:", err);
+    }
+
+    if (isAdmin) {
+      router.push("/admin");
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
   // Redirect if already authenticated
   useEffect(() => {
     if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.push("/dashboard");
+        checkAdminAndRedirect(user);
       }
     });
     return () => unsubscribe();
@@ -51,7 +110,7 @@ export default function LoginPage() {
         setSuccess("Login efetuado com sucesso! Redirecionando...");
       }
       setTimeout(() => {
-        router.push("/dashboard");
+        checkAdminAndRedirect(auth.currentUser);
       }, 1000);
     } catch (err) {
       console.error("Auth error:", err);
