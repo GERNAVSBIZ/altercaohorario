@@ -91,7 +91,8 @@ export async function POST(req) {
         },
         requestor: {
           name: "Pedro Alvares Cabral",
-          role: "Despachante Operacional"
+          role: "Despachante Operacional",
+          billingEmail: "financeiro.brasil@exemplo.com"
         },
         pilot: {
           name: "João da Silva",

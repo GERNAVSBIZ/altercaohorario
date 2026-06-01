@@ -203,7 +203,8 @@ export async function GET(req) {
           },
           requestor: {
             name: "WILKSON",
-            role: "Operador de Voo"
+            role: "Operador de Voo",
+            billingEmail: "financeiro.taxi@dniz.com.br"
           },
           pilot: {
             name: "Gabriel Martins",

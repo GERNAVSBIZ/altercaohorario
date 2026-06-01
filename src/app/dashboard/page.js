@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [aircraftOperator, setAircraftOperator] = useState("");
   const [requestorName, setRequestorName] = useState("");
   const [requestorRole, setRequestorRole] = useState("");
+  const [requestorBillingEmail, setRequestorBillingEmail] = useState("");
   const [serviceType, setServiceType] = useState("");
 
   const [pilotName, setPilotName] = useState("");
@@ -143,6 +144,7 @@ export default function DashboardPage() {
               setAircraftOperator(data.aircraftOperator || "");
               setRequestorName(data.requestorName || "");
               setRequestorRole(data.requestorRole || "");
+              setRequestorBillingEmail(data.requestorBillingEmail || "");
               setPilotName(data.pilotName || "");
               setPilotAnac(data.pilotAnac || "");
               setAircraftTypeQty(data.aircraftTypeQty || "");
@@ -192,8 +194,8 @@ export default function DashboardPage() {
       return;
     }
 
-    if (!aircraftOperator || !requestorName || !requestorRole || !serviceType) {
-      setErrorMsg("Por favor, preencha os dados do solicitante e operador.");
+    if (!aircraftOperator || !requestorName || !requestorRole || !requestorBillingEmail || !serviceType) {
+      setErrorMsg("Por favor, preencha os dados do solicitante, operador e e-mail de faturamento.");
       setOpenSections(prev => ({ ...prev, operator: true }));
       setSubmitLoading(false);
       return;
@@ -230,6 +232,7 @@ export default function DashboardPage() {
       aircraftOperator,
       requestorName,
       requestorRole,
+      requestorBillingEmail,
       pilotName,
       pilotAnac,
       aircraftTypeQty,
@@ -261,7 +264,8 @@ export default function DashboardPage() {
       },
       requestor: {
         name: requestorName,
-        role: requestorRole
+        role: requestorRole,
+        billingEmail: requestorBillingEmail
       },
       pilot: {
         name: pilotName,
@@ -542,24 +546,36 @@ export default function DashboardPage() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Espécie do Serviço</label>
-                        <select 
+                        <label className="form-label">E-mail de Faturamento</label>
+                        <input 
+                          type="email" 
                           className="form-input" 
-                          style={{ height: "51.5px", padding: "0 16px" }}
-                          value={serviceType}
-                          onChange={e => setServiceType(e.target.value)}
+                          placeholder="financeiro@empresa.com"
+                          value={requestorBillingEmail}
+                          onChange={e => setRequestorBillingEmail(e.target.value)}
                           disabled={submitLoading}
                           required
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="Regular (Passageiros)">Regular (Passageiros)</option>
-                          <option value="Não-Regular (Fretamento)">Não-Regular (Fretamento)</option>
-                          <option value="Geral (Executiva)">Geral (Executiva)</option>
-                          <option value="Carga Aérea">Carga Aérea</option>
-                          <option value="Serviço de Saúde (AeroMédico)">Serviço de Saúde (AeroMédico)</option>
-                          <option value="Outro (Operação Militar / Estado)">Outro</option>
-                        </select>
+                        />
                       </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Espécie do Serviço</label>
+                      <select 
+                        className="form-input" 
+                        style={{ height: "51.5px", padding: "0 16px" }}
+                        value={serviceType}
+                        onChange={e => setServiceType(e.target.value)}
+                        disabled={submitLoading}
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Regular (Passageiros)">Regular (Passageiros)</option>
+                        <option value="Não-Regular (Fretamento)">Não-Regular (Fretamento)</option>
+                        <option value="Geral (Executiva)">Geral (Executiva)</option>
+                        <option value="Carga Aérea">Carga Aérea</option>
+                        <option value="Serviço de Saúde (AeroMédico)">Serviço de Saúde (AeroMédico)</option>
+                        <option value="Outro (Operação Militar / Estado)">Outro</option>
+                      </select>
                     </div>
                   </div>
                 )}

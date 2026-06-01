@@ -143,6 +143,11 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Solicitante:</td>
           <td style="padding: 6px 0;">${requestData.requestor.name} (${requestData.requestor.role})</td>
         </tr>
+        ${requestData.requestor.billingEmail ? `
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">E-mail Faturamento:</td>
+          <td style="padding: 6px 0;">${requestData.requestor.billingEmail}</td>
+        </tr>` : ''}
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
           <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
@@ -237,6 +242,11 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Solicitante:</td>
           <td style="padding: 6px 0;">${requestData.requestor.name} (${requestData.requestor.role})</td>
         </tr>
+        ${requestData.requestor.billingEmail ? `
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">E-mail Faturamento:</td>
+          <td style="padding: 6px 0;">${requestData.requestor.billingEmail}</td>
+        </tr>` : ''}
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
           <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>

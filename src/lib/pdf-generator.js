@@ -168,6 +168,7 @@ export async function generateRequestPdf(data) {
   drawSectionHeader("2. OPERADOR DA AERONAVE E SOLICITANTE");
   drawRow("Operador:", data.aircraft.operator, "Espécie do Serviço:", data.serviceType);
   drawRow("Solicitante:", data.requestor.name, "Função:", data.requestor.role);
+  drawRow("E-mail Faturamento:", data.requestor.billingEmail);
 
   // 3. PERÍODO SOLICITADO
   drawSectionHeader("3. PERÍODO DA SOLICITAÇÃO");

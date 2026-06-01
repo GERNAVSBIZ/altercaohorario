@@ -39,7 +39,8 @@ export async function GET(req) {
           },
           requestor: {
             name: "WILKSON",
-            role: "Operador de Voo"
+            role: "Operador de Voo",
+            billingEmail: "financeiro.taxi@dniz.com.br"
           },
           pilot: {
             name: "Gabriel Martins",
@@ -71,7 +72,8 @@ export async function GET(req) {
           },
           requestor: {
             name: "Marcos Souza",
-            role: "Supervisor de Aeroporto"
+            role: "Supervisor de Aeroporto",
+            billingEmail: "faturamento.br@latam.com"
           },
           pilot: {
             name: "Carlos Eduardo",

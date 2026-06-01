@@ -471,7 +471,7 @@ export default function AdminPage() {
                         <td>
                           <div>{req.requestor?.name}</div>
                           <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "2px" }}>
-                            {req.requestor?.role}
+                            {req.requestor?.role} {req.requestor?.billingEmail ? `| Fin: ${req.requestor.billingEmail}` : ''}
                           </div>
                         </td>
                         <td>{req.aircraft?.typeQty}</td>
