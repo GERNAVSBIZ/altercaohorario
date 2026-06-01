@@ -62,6 +62,7 @@ export async function POST(req) {
       await adminDb.collection("requests").doc(requestId).set(requestData);
     } else {
       console.log(`[SANDBOX] Solicitação #${requestId} pré-registrada.`);
+      global.lastMockRequest = requestData;
     }
 
     // 5. Generate PDF
@@ -199,7 +200,8 @@ export async function GET(req) {
           },
           aircraft: {
             operator: "Táxi Aéreo DNIZ",
-            typeQty: "C208 / 1"
+            typeQty: "C208 / 1",
+            registration: "PT-XYZ"
           },
           requestor: {
             name: "WILKSON",

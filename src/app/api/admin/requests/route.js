@@ -35,7 +35,8 @@ export async function GET(req) {
           },
           aircraft: {
             operator: "Táxi Aéreo DNIZ",
-            typeQty: "C208 / 1"
+            typeQty: "C208 / 1",
+            registration: "PT-XYZ"
           },
           requestor: {
             name: "WILKSON",
@@ -68,7 +69,8 @@ export async function GET(req) {
           },
           aircraft: {
             operator: "Latam Cargo",
-            typeQty: "A320 / 1"
+            typeQty: "A320 / 1",
+            registration: "PR-MSZ"
           },
           requestor: {
             name: "Marcos Souza",

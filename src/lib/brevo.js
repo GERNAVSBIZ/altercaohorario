@@ -359,3 +359,58 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
     htmlContent,
   });
 }
+
+/**
+ * Sends a notification email to the operator when the request is auto-rejected due to delinquent aircraft.
+ */
+export async function sendDelinquentRejectionEmail({ email, name, requestData }) {
+  const idShort = requestData.id.slice(-6).toUpperCase();
+  const subject = `[REPROVADA AUTOMATICAMENTE] Solicitação de Prorrogação de Horário #${idShort} - SBIZ`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; color: #333;">
+      <h2 style="color: #c92a2a; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Solicitação Indeferida de Imediato</h2>
+      <p>Olá, <strong>${name}</strong>,</p>
+      <p>A sua solicitação de prorrogação de horário para o Aeroporto de Imperatriz (SBIZ) foi recebida e processada.</p>
+      
+      <div style="background-color: #fff5f5; border: 1px solid #ffc9c9; border-left: 5px solid #c92a2a; padding: 15px; margin: 20px 0; border-radius: 4px; color: #c92a2a;">
+        <h4 style="margin: 0 0 5px 0; font-size: 16px;">Status: <strong>SOLICITAÇÃO REPROVADA</strong></h4>
+        <p style="margin: 0; font-size: 14px; color: #555;">
+          Identificamos que a aeronave de matrícula <strong>${requestData.aircraft?.registration || "solicitada"}</strong> possui pendências financeiras (inadimplência) junto à NAV Brasil.
+        </p>
+      </div>
+
+      <p style="font-size: 14px; line-height: 1.5; font-weight: bold; color: #333;">
+        Esta solicitação foi REPROVADA DE IMEDIATO e não entrará em análise operacional.
+      </p>
+      <p style="font-size: 14px; line-height: 1.5; color: #555;">
+        Para regularizar as pendências e reabilitar a aeronave para futuras solicitações, por favor, entre em contato com a administração da <strong>NAV Brasil / DNIZ</strong>.
+      </p>
+
+      <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Dados da Aeronave Restrita</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; width: 140px; color: #555;">Empresa/Entidade:</td>
+          <td style="padding: 6px 0;">${requestData.company.name}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Matrícula Aeronave:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">${requestData.aircraft.registration}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Tipo/Qtd:</td>
+          <td style="padding: 6px 0;">${requestData.aircraft.typeQty}</td>
+        </tr>
+      </table>
+
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #777; text-align: center; margin: 0;">SBIZ - Sistema de Solicitação de Prorrogação de Horário<br/>NAV Brasil - DNIZ</p>
+    </div>
+  `;
+
+  return sendEmail({
+    to: [{ email, name }],
+    subject,
+    htmlContent,
+  });
+}

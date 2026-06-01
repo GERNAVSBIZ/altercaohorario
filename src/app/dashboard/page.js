@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const [companyAddress, setCompanyAddress] = useState("");
 
   const [aircraftOperator, setAircraftOperator] = useState("");
+  const [aircraftRegistration, setAircraftRegistration] = useState("");
   const [requestorName, setRequestorName] = useState("");
   const [requestorRole, setRequestorRole] = useState("");
   const [requestorBillingEmail, setRequestorBillingEmail] = useState("");
@@ -142,6 +143,7 @@ export default function DashboardPage() {
               setCompanyPhone(data.companyPhone || "");
               setCompanyAddress(data.companyAddress || "");
               setAircraftOperator(data.aircraftOperator || "");
+              setAircraftRegistration(data.aircraftRegistration || "");
               setRequestorName(data.requestorName || "");
               setRequestorRole(data.requestorRole || "");
               setRequestorBillingEmail(data.requestorBillingEmail || "");
@@ -201,8 +203,8 @@ export default function DashboardPage() {
       return;
     }
 
-    if (!aircraftTypeQty || !pilotName || !pilotAnac) {
-      setErrorMsg("Por favor, preencha a identificação da aeronave e dados do piloto.");
+    if (!aircraftTypeQty || !aircraftRegistration || !pilotName || !pilotAnac) {
+      setErrorMsg("Por favor, preencha a identificação da aeronave, matrícula e dados do piloto.");
       setOpenSections(prev => ({ ...prev, flight: true }));
       setSubmitLoading(false);
       return;
@@ -230,6 +232,7 @@ export default function DashboardPage() {
       companyPhone,
       companyAddress,
       aircraftOperator,
+      aircraftRegistration,
       requestorName,
       requestorRole,
       requestorBillingEmail,
@@ -260,7 +263,8 @@ export default function DashboardPage() {
       },
       aircraft: {
         operator: aircraftOperator,
-        typeQty: aircraftTypeQty
+        typeQty: aircraftTypeQty,
+        registration: aircraftRegistration
       },
       requestor: {
         name: requestorName,
@@ -593,17 +597,31 @@ export default function DashboardPage() {
 
                 {openSections.flight && (
                   <div className="accordion-content">
-                    <div className="form-group">
-                      <label className="form-label">Identificação da Aeronave (Tipo/Qtd)</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        placeholder="Ex: C208 / 1, B738 / 1"
-                        value={aircraftTypeQty}
-                        onChange={e => setAircraftTypeQty(e.target.value)}
-                        disabled={submitLoading}
-                        required
-                      />
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label className="form-label">Identificação da Aeronave (Tipo/Qtd)</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          placeholder="Ex: C208 / 1, B738 / 1"
+                          value={aircraftTypeQty}
+                          onChange={e => setAircraftTypeQty(e.target.value)}
+                          disabled={submitLoading}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Matrícula da Aeronave</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          placeholder="Ex: PT-XYZ, PS-ABC"
+                          value={aircraftRegistration}
+                          onChange={e => setAircraftRegistration(e.target.value.toUpperCase())}
+                          disabled={submitLoading}
+                          required
+                        />
+                      </div>
                     </div>
                     <div className="form-group">
                       <label className="form-label">Nome do Piloto em Comando</label>

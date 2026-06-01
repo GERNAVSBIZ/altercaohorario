@@ -74,12 +74,13 @@ export async function generateRequestPdf(data) {
     color: orangeColor,
   });
 
-  page.drawText(`Status: CONFIRMADO`, {
+  const isRejected = data.approvalStatus === "not_authorized";
+  page.drawText(`Status: ${isRejected ? "REPROVADO" : "CONFIRMADO"}`, {
     x: 420,
     y: 745,
     size: 10,
     font: helveticaBold,
-    color: rgb(46 / 255, 117 / 255, 89 / 255), // Green
+    color: isRejected ? rgb(200 / 255, 30 / 255, 30 / 255) : rgb(46 / 255, 117 / 255, 89 / 255),
   });
 
   y = 700;
@@ -178,8 +179,8 @@ export async function generateRequestPdf(data) {
 
   // 4. IDENTIFICAÇÃO DA AERONAVE E TRIPULAÇÃO
   drawSectionHeader("4. DADOS DO VOO E TRIPULAÇÃO");
-  drawRow("Aeronave (Tipo/Qtd):", data.aircraft.typeQty, "Código ANAC Piloto:", data.pilot.anacCode);
-  drawRow("Piloto em Comando:", data.pilot.name);
+  drawRow("Aeronave (Tipo/Qtd):", data.aircraft.typeQty, "Matrícula:", data.aircraft.registration);
+  drawRow("Piloto em Comando:", data.pilot.name, "Código ANAC Piloto:", data.pilot.anacCode);
 
   // 5. OBSERVAÇÕES
   drawSectionHeader("5. OBSERVAÇÕES ADICIONAIS");

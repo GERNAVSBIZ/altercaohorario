@@ -44,6 +44,31 @@ export default function AdminPage() {
   const [customNotes, setCustomNotes] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
 
+  // Delinquents State
+  const [delinquentAircrafts, setDelinquentAircrafts] = useState([]);
+  const [delinquentsListLoading, setDelinquentsListLoading] = useState(false);
+  const [delinquentActionLoading, setDelinquentActionLoading] = useState(false);
+  const [delinquentRegistration, setDelinquentRegistration] = useState("");
+  const [delinquentTaxId, setDelinquentTaxId] = useState("");
+  const [delinquentCompanyName, setDelinquentCompanyName] = useState("");
+
+  const fetchDelinquents = async () => {
+    setDelinquentsListLoading(true);
+    try {
+      const res = await fetch("/api/admin/delinquents");
+      const data = await res.json();
+      if (res.ok) {
+        setDelinquentAircrafts(data.delinquents || []);
+      } else {
+        throw new Error(data.error || "Erro ao buscar inadimplentes");
+      }
+    } catch (err) {
+      console.error("Fetch delinquents error:", err);
+    } finally {
+      setDelinquentsListLoading(false);
+    }
+  };
+
   // Fetch requests and settings
   const fetchData = async () => {
     setLoading(true);
@@ -66,6 +91,9 @@ export default function AdminPage() {
       setEmailSubjectPrefix(s.emailSubjectPrefix || "");
       setCustomNotes(s.customNotes || "");
       setAdminEmails(s.adminEmails || "");
+      
+      // 3. Fetch delinquents
+      await fetchDelinquents();
       
     } catch (err) {
       console.error("Admin fetch error:", err);
@@ -233,6 +261,71 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddDelinquent = async (e) => {
+    e.preventDefault();
+    setSuccessMsg("");
+    setErrorMsg("");
+    setDelinquentActionLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/delinquents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add",
+          registration: delinquentRegistration.trim().toUpperCase(),
+          taxId: delinquentTaxId.trim(),
+          companyName: delinquentCompanyName.trim()
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || "Erro ao adicionar restrição.");
+
+      setSuccessMsg("Aeronave restrita adicionada com sucesso!");
+      setDelinquentRegistration("");
+      setDelinquentTaxId("");
+      setDelinquentCompanyName("");
+      
+      await fetchDelinquents();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      console.error("Add delinquent error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setDelinquentActionLoading(false);
+    }
+  };
+
+  const handleDeleteDelinquent = async (id) => {
+    setSuccessMsg("");
+    setErrorMsg("");
+    setDelinquentActionLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/delinquents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          id
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || "Erro ao remover restrição.");
+
+      setSuccessMsg("Aeronave removida da lista de restrições.");
+      await fetchDelinquents();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      console.error("Delete delinquent error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setDelinquentActionLoading(false);
+    }
+  };
+
   // Metrics calculations
   const totalCount = requests.length;
   const confirmedCount = requests.filter(r => r.status === "confirmed").length;
@@ -389,6 +482,13 @@ export default function AdminPage() {
             <Settings size={16} />
             <span>Configuração de E-mails</span>
           </button>
+          <button 
+            className={`tab-btn ${activeTab === "delinquents" ? "active" : ""}`}
+            onClick={() => setActiveTab("delinquents")}
+          >
+            <AlertTriangle size={16} />
+            <span>Aeronaves Inadimplentes</span>
+          </button>
         </div>
 
         {/* Tab 1: Requests List */}
@@ -474,7 +574,14 @@ export default function AdminPage() {
                             {req.requestor?.role} {req.requestor?.billingEmail ? `| Fin: ${req.requestor.billingEmail}` : ''}
                           </div>
                         </td>
-                        <td>{req.aircraft?.typeQty}</td>
+                        <td>
+                          <div>{req.aircraft?.typeQty}</div>
+                          {req.aircraft?.registration && (
+                            <div style={{ fontSize: "11px", color: "var(--accent)", marginTop: "2px", fontWeight: "bold" }}>
+                              {req.aircraft.registration}
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
                           <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR")}</div>
                           <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR")}</div>
@@ -642,6 +749,136 @@ export default function AdminPage() {
                 )}
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Tab 3: Delinquent Aircrafts */}
+        {activeTab === "delinquents" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "fadeIn 0.3s ease-out" }}>
+            {/* Add delinquent form */}
+            <div className="card" style={{ padding: "28px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+                <AlertTriangle style={{ color: "var(--accent)" }} size={20} />
+                <h3 style={{ fontSize: "18px", color: "white" }}>Restringir Aeronave (Inadimplência)</h3>
+              </div>
+              
+              <p style={{ fontSize: "13px", color: "var(--text-dark-muted)", lineHeight: "1.5", marginBottom: "24px" }}>
+                Cadastre abaixo aeronaves inadimplentes. Qualquer nova solicitação contendo a matrícula informada será reprovada imediatamente no momento da confirmação.
+              </p>
+
+              <form onSubmit={handleAddDelinquent}>
+                <div className="form-group">
+                  <label className="form-label">Matrícula da Aeronave</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Ex: PT-XYZ, PS-ABC"
+                    value={delinquentRegistration}
+                    onChange={e => setDelinquentRegistration(e.target.value.toUpperCase())}
+                    disabled={delinquentActionLoading}
+                    required
+                  />
+                </div>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">CNPJ ou CPF da Empresa</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="00.000.000/0000-00"
+                      value={delinquentTaxId}
+                      onChange={e => setDelinquentTaxId(e.target.value)}
+                      disabled={delinquentActionLoading}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Nome da Empresa</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Empresa Aérea Ltda"
+                      value={delinquentCompanyName}
+                      onChange={e => setDelinquentCompanyName(e.target.value)}
+                      disabled={delinquentActionLoading}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn" 
+                  disabled={delinquentActionLoading}
+                  style={{ marginTop: "12px", gap: "10px" }}
+                >
+                  {delinquentActionLoading ? (
+                    <span className="spinner"></span>
+                  ) : (
+                    <>
+                      <Check size={18} />
+                      Adicionar Aeronave
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Delinquents list */}
+            <div className="card" style={{ padding: "24px" }}>
+              <h3 style={{ fontSize: "16px", color: "white", marginBottom: "16px" }}>Aeronaves Restritas</h3>
+              
+              {delinquentsListLoading ? (
+                <div style={{ textAlign: "center", padding: "24px 0" }}>
+                  <span className="spinner" style={{ width: "24px", height: "24px" }}></span>
+                  <p style={{ marginTop: "12px", color: "var(--text-dark-muted)", fontSize: "13px" }}>Buscando registros...</p>
+                </div>
+              ) : delinquentAircrafts.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "var(--text-dark-muted)", textAlign: "center", padding: "20px 0" }}>
+                  Nenhuma aeronave inadimplente cadastrada.
+                </p>
+              ) : (
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Matrícula</th>
+                        <th>Empresa</th>
+                        <th>CNPJ/CPF</th>
+                        <th>Cadastrado em</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {delinquentAircrafts.map((ac) => (
+                        <tr key={ac.id}>
+                          <td style={{ fontWeight: "bold", color: "var(--accent)" }}>{ac.registration}</td>
+                          <td>{ac.companyName}</td>
+                          <td>{ac.taxId}</td>
+                          <td style={{ fontSize: "12px", color: "var(--text-dark-muted)" }}>
+                            {new Date(ac.createdAt).toLocaleDateString("pt-BR")}
+                          </td>
+                          <td>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteDelinquent(ac.id)}
+                              className="admin-action-btn btn-reject"
+                              style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                              disabled={delinquentActionLoading}
+                            >
+                              <X size={12} />
+                              <span>Remover</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
