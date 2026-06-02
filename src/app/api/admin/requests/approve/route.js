@@ -38,13 +38,26 @@ export async function POST(req) {
       try {
         if (requestData.company?.email) {
           const { sendOperatorDecisionEmail } = await import("@/lib/brevo");
+
+          // Load settings to check for CC emails
+          let ccEmails = "";
+          try {
+            const settingsSnap = await adminDb.collection("config").doc("settings").get();
+            if (settingsSnap.exists) {
+              ccEmails = settingsSnap.data().ccDecisionEmails || "";
+            }
+          } catch (settingsErr) {
+            console.error("Failed to load settings in approval route (non-blocking):", settingsErr);
+          }
+
           await sendOperatorDecisionEmail({
             email: requestData.company.email,
             name: requestData.requestor?.name || "Operador",
             requestData,
-            decision
+            decision,
+            ccEmails
           });
-          console.log(`[EMAIL] E-mail de decisão enviado com sucesso para ${requestData.company.email}`);
+          console.log(`[EMAIL] E-mail de decisão enviado com sucesso para ${requestData.company.email} com cópia para: ${ccEmails}`);
         }
       } catch (emailErr) {
         console.error("Falha ao enviar e-mail de decisão para o operador:", emailErr);

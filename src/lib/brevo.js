@@ -296,7 +296,7 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
 /**
  * Sends a notification email to the operator when the admin decides (approves or rejects) a request.
  */
-export async function sendOperatorDecisionEmail({ email, name, requestData, decision }) {
+export async function sendOperatorDecisionEmail({ email, name, requestData, decision, ccEmails }) {
   const idShort = requestData.id.slice(-6).toUpperCase();
   const isApproved = decision === "authorized";
   const statusLabel = isApproved ? "AUTORIZADA" : "RECUSADA";
@@ -353,8 +353,16 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
     </div>
   `;
 
+  const to = [{ email, name }];
+  if (ccEmails) {
+    const additionalEmails = ccEmails.split(/[,;]/).map(e => e.trim()).filter(Boolean);
+    additionalEmails.forEach(additionalEmail => {
+      to.push({ email: additionalEmail, name: "Cópia - NAV Brasil" });
+    });
+  }
+
   return sendEmail({
-    to: [{ email, name }],
+    to,
     subject,
     htmlContent,
   });

@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [emailSubjectPrefix, setEmailSubjectPrefix] = useState("");
   const [customNotes, setCustomNotes] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
+  const [ccDecisionEmails, setCcDecisionEmails] = useState("");
 
   // Delinquents State
   const [delinquentAircrafts, setDelinquentAircrafts] = useState([]);
@@ -91,6 +92,7 @@ export default function AdminPage() {
       setEmailSubjectPrefix(s.emailSubjectPrefix || "");
       setCustomNotes(s.customNotes || "");
       setAdminEmails(s.adminEmails || "");
+      setCcDecisionEmails(s.ccDecisionEmails || "");
       
       // 3. Fetch delinquents
       await fetchDelinquents();
@@ -198,7 +200,8 @@ export default function AdminPage() {
           airportAdminEmail,
           emailSubjectPrefix,
           customNotes,
-          adminEmails
+          adminEmails,
+          ccDecisionEmails
         })
       });
 
@@ -698,6 +701,21 @@ export default function AdminPage() {
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
                   E-mails dos usuários habilitados a acessar o Painel Administrativo e tomar decisões de aprovação. O e-mail <strong>wilkson.carvalho@navbrasil.gov.br</strong> é administrador absoluto e sempre terá acesso, mesmo que não listado.
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">E-mails para Cópia de Decisão (Aprovação/Recusa - separe por vírgula)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="faturamento.sbiz@navbrasil.gov.br, supervisao.sbiz@navbrasil.gov.br"
+                  value={ccDecisionEmails}
+                  onChange={e => setCcDecisionEmails(e.target.value)}
+                  disabled={settingsLoading || loading}
+                />
+                <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                  E-mails que receberão uma cópia do e-mail de notificação final (autorizado/recusado) enviado ao operador (separe múltiplos por vírgula).
                 </span>
               </div>
 

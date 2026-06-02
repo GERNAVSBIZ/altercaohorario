@@ -7,7 +7,8 @@ export async function GET(req) {
       airportAdminEmail: process.env.AIRPORT_ADMIN_EMAIL || "administracao.sbiz@localhost.com",
       emailSubjectPrefix: "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ",
       customNotes: "",
-      adminEmails: "adriano.matos@navbrasil.gov.br, gernavsbiz@gmail.com"
+      adminEmails: "adriano.matos@navbrasil.gov.br, gernavsbiz@gmail.com",
+      ccDecisionEmails: ""
     };
 
     if (adminDb) {
@@ -38,7 +39,7 @@ export async function POST(req) {
   try {
     const data = await req.json();
 
-    const { airportAdminEmail, emailSubjectPrefix, customNotes, adminEmails } = data;
+    const { airportAdminEmail, emailSubjectPrefix, customNotes, adminEmails, ccDecisionEmails } = data;
     if (!airportAdminEmail) {
       return NextResponse.json(
         { error: "O e-mail administrativo é obrigatório." },
@@ -51,6 +52,7 @@ export async function POST(req) {
       emailSubjectPrefix: emailSubjectPrefix || "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ",
       customNotes: customNotes || "",
       adminEmails: adminEmails || "",
+      ccDecisionEmails: ccDecisionEmails || "",
       updatedAt: new Date().toISOString()
     };
 
