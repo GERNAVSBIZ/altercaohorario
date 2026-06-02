@@ -167,13 +167,12 @@ export default function DashboardPage() {
               setCompanyEmail(currentUser.email || "");
             }
 
-            // Check config settings for admin emails
+            // Check config settings for admin emails by querying the server-side settings API
             if (!userIsAdmin) {
-              const settingsRef = doc(db, "config", "settings");
-              const settingsSnap = await getDoc(settingsRef);
-              if (settingsSnap.exists()) {
-                const settingsData = settingsSnap.data();
-                const allowedAdminsStr = settingsData.adminEmails || "";
+              const settingsRes = await fetch("/api/admin/settings");
+              if (settingsRes.ok) {
+                const settingsData = await settingsRes.json();
+                const allowedAdminsStr = settingsData.settings?.adminEmails || "";
                 const allowedAdmins = allowedAdminsStr
                   .split(/[,;]/)
                   .map(e => e.trim().toLowerCase())

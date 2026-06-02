@@ -54,10 +54,10 @@ export default function LoginPage() {
       }
 
       if (!isAdmin) {
-        const settingsSnap = await getDoc(doc(db, "config", "settings"));
-        if (settingsSnap.exists()) {
-          const settingsData = settingsSnap.data();
-          const allowedAdminsStr = settingsData.adminEmails || "";
+        const settingsRes = await fetch("/api/admin/settings");
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          const allowedAdminsStr = settingsData.settings?.adminEmails || "";
           const allowedAdmins = allowedAdminsStr
             .split(/[,;]/)
             .map(e => e.trim().toLowerCase())

@@ -131,16 +131,15 @@ export default function AdminPage() {
             lowerEmail === "gernavsbiz@gmail.com" ||
             lowerEmail === "developer@sbiz.local";
         }
-
+        
         // 3. Dynamic check in Firestore (settings list and profile roles)
         if (!isAdmin && db) {
           try {
-            // First check config/settings for dynamic adminEmails configuration list
-            const settingsRef = doc(db, "config", "settings");
-            const settingsSnap = await getDoc(settingsRef);
-            if (settingsSnap.exists()) {
-              const settingsData = settingsSnap.data();
-              const allowedAdminsStr = settingsData.adminEmails || "";
+            // First check config/settings for dynamic adminEmails configuration list by querying the server-side settings API
+            const settingsRes = await fetch("/api/admin/settings");
+            if (settingsRes.ok) {
+              const settingsData = await settingsRes.json();
+              const allowedAdminsStr = settingsData.settings?.adminEmails || "";
               const allowedAdmins = allowedAdminsStr
                 .split(/[,;]/)
                 .map(e => e.trim().toLowerCase())
@@ -151,7 +150,7 @@ export default function AdminPage() {
               }
             }
           } catch (settingsErr) {
-            console.error("Error reading adminEmails settings from Firestore:", settingsErr);
+            console.error("Error reading adminEmails settings from dynamic config API:", settingsErr);
           }
 
           // Fallback to checking profile role as secondary authority
