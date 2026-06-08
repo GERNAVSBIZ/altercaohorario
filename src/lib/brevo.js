@@ -161,6 +161,10 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
           <td style="padding: 6px 0;">${requestData.aircraft.typeQty} (Operador: ${requestData.aircraft.operator})</td>
         </tr>
         <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Matrícula:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">${requestData.aircraft.registration || '-'}</td>
+        </tr>
+        <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Piloto:</td>
           <td style="padding: 6px 0;">${requestData.pilot.name} (ANAC: ${requestData.pilot.anacCode})</td>
         </tr>
@@ -258,6 +262,10 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Aeronave:</td>
           <td style="padding: 6px 0;">${requestData.aircraft.typeQty} (Operador: ${requestData.aircraft.operator})</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Matrícula:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">${requestData.aircraft.registration || '-'}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Piloto:</td>
