@@ -18,7 +18,9 @@ import {
   Clock,
   LayoutGrid,
   Check,
-  X
+  X,
+  Download,
+  Trash2
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -258,6 +260,34 @@ export default function AdminPage() {
       setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err) {
       console.error("Approval decision error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteRequest = async (id) => {
+    if (!window.confirm("Tem certeza de que deseja excluir esta solicitação? Esta ação é irreversível e removerá o registro permanentemente.")) {
+      return;
+    }
+
+    setSuccessMsg("");
+    setErrorMsg("");
+    setLoading(true);
+
+    try {
+      const response = await fetch(`/api/admin/requests?id=${id}`, {
+        method: "DELETE",
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || "Erro ao excluir solicitação.");
+
+      setSuccessMsg("Solicitação excluída com sucesso!");
+      await fetchData();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      console.error("Delete request error:", err);
       setErrorMsg(err.message);
     } finally {
       setLoading(false);
@@ -558,6 +588,7 @@ export default function AdminPage() {
                       <th>Operador</th>
                       <th>Autorização</th>
                       <th>Assinatura / IP</th>
+                      <th>PDF</th>
                       <th>Ações</th>
                     </tr>
                   </thead>
@@ -623,36 +654,76 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td>
-                          {req.status === "confirmed" && (!req.approvalStatus || req.approvalStatus === "pending_analysis") ? (
-                            <div style={{ display: "flex", gap: "6px" }}>
-                              <button 
-                                onClick={() => handleApprove(req.id, "authorized")}
-                                className="admin-action-btn btn-approve"
-                                style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
-                                title="Autorizar Horário"
-                              >
-                                <Check size={12} />
-                                <span>Autorizar</span>
-                              </button>
-                              <button 
-                                onClick={() => handleApprove(req.id, "not_authorized")}
-                                className="admin-action-btn btn-reject"
-                                style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
-                                title="Recusar Horário"
-                              >
-                                <X size={12} />
-                                <span>Recusar</span>
-                              </button>
-                            </div>
-                          ) : req.status === "confirmed" ? (
-                            <span style={{ fontSize: "11.5px", color: "var(--text-dark-muted)", fontWeight: "500" }}>
-                              Finalizado
-                            </span>
+                          {req.status === "confirmed" && req.approvalStatus === "authorized" ? (
+                            <a 
+                              href={`/api/requests/pdf?id=${req.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="admin-action-btn"
+                              style={{ 
+                                padding: "6px 10px", 
+                                fontSize: "11px", 
+                                gap: "4px", 
+                                backgroundColor: "rgba(239, 91, 37, 0.15)", 
+                                borderColor: "rgba(239, 91, 37, 0.4)", 
+                                color: "var(--text-dark)",
+                                textDecoration: "none"
+                              }}
+                              title="Baixar PDF Oficial"
+                              download
+                            >
+                              <Download size={12} style={{ color: "var(--accent)" }} />
+                              <span>PDF</span>
+                            </a>
                           ) : (
-                            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.15)" }}>
-                              Sem Ações
+                            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+                              {req.status !== "confirmed" ? "Rascunho" : "Pendente/Recusado"}
                             </span>
                           )}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            {req.status === "confirmed" && (!req.approvalStatus || req.approvalStatus === "pending_analysis") ? (
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button 
+                                  onClick={() => handleApprove(req.id, "authorized")}
+                                  className="admin-action-btn btn-approve"
+                                  style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                                  title="Autorizar Horário"
+                                >
+                                  <Check size={12} />
+                                  <span>Autorizar</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleApprove(req.id, "not_authorized")}
+                                  className="admin-action-btn btn-reject"
+                                  style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                                  title="Recusar Horário"
+                                >
+                                  <X size={12} />
+                                  <span>Recusar</span>
+                                </button>
+                              </div>
+                            ) : req.status === "confirmed" ? (
+                              <span style={{ fontSize: "11.5px", color: "var(--text-dark-muted)", fontWeight: "500" }}>
+                                Finalizado
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.15)" }}>
+                                Sem Ações
+                              </span>
+                            )}
+                            
+                            <button
+                              onClick={() => handleDeleteRequest(req.id)}
+                              className="admin-action-btn btn-reject"
+                              style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                              title="Excluir Solicitação"
+                            >
+                              <Trash2 size={12} />
+                              <span>Excluir</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
