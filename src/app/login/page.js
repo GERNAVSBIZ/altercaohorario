@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  sendPasswordResetEmail 
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -14,6 +15,7 @@ import { Plane, Lock, Mail, UserPlus, LogIn } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
   const [isRegister, setIsRegister] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -102,21 +104,29 @@ export default function LoginPage() {
     }
 
     try {
-      if (isRegister) {
+      if (isForgotPassword) {
+        await sendPasswordResetEmail(auth, email);
+        setSuccess("E-mail de redefinição de senha enviado com sucesso! Verifique sua caixa de entrada.");
+        setIsForgotPassword(false);
+        setLoading(false);
+      } else if (isRegister) {
         await createUserWithEmailAndPassword(auth, email, password);
         setSuccess("Conta criada com sucesso! Redirecionando...");
+        setTimeout(() => {
+          checkAdminAndRedirect(auth.currentUser);
+        }, 1000);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         setSuccess("Login efetuado com sucesso! Redirecionando...");
+        setTimeout(() => {
+          checkAdminAndRedirect(auth.currentUser);
+        }, 1000);
       }
-      setTimeout(() => {
-        checkAdminAndRedirect(auth.currentUser);
-      }, 1000);
     } catch (err) {
       console.error("Auth error:", err);
       let message = "Ocorreu um erro ao processar sua solicitação.";
       if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        message = "E-mail ou senha incorretos.";
+        message = isForgotPassword ? "Nenhum usuário cadastrado com este e-mail." : "E-mail ou senha incorretos.";
       } else if (err.code === "auth/email-already-in-use") {
         message = "Este endereço de e-mail já está em uso.";
       } else if (err.code === "auth/weak-password") {
@@ -152,8 +162,14 @@ export default function LoginPage() {
         </div>
 
         <h2 style={{ fontSize: "20px", marginBottom: "20px", textAlign: "center" }}>
-          {isRegister ? "Criar Nova Conta" : "Entrar no Sistema"}
+          {isForgotPassword ? "Recuperar Senha" : isRegister ? "Criar Nova Conta" : "Entrar no Sistema"}
         </h2>
+
+        {isForgotPassword && (
+          <p style={{ fontSize: "13px", color: "var(--text-dark-muted)", textAlign: "center", marginBottom: "20px", lineHeight: "1.5" }}>
+            Insira o seu e-mail cadastrado abaixo e enviaremos um link de redefinição de senha.
+          </p>
+        )}
 
         {error && (
           <div className="notification notification-error">
@@ -193,37 +209,44 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Senha</label>
-            <div style={{ position: "relative" }}>
-              <Lock 
-                size={18} 
-                style={{ 
-                  position: "absolute", 
-                  left: "14px", 
-                  top: "16px", 
-                  color: "var(--text-dark-muted)" 
-                }} 
-              />
-              <input
-                type="password"
-                required
-                className="form-input"
-                style={{ paddingLeft: "44px" }}
-                placeholder="Sua senha secreta"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
+          {!isForgotPassword && (
+            <div className="form-group">
+              <label className="form-label">Senha</label>
+              <div style={{ position: "relative" }}>
+                <Lock 
+                  size={18} 
+                  style={{ 
+                    position: "absolute", 
+                    left: "14px", 
+                    top: "16px", 
+                    color: "var(--text-dark-muted)" 
+                  }} 
+                />
+                <input
+                  type="password"
+                  required={!isForgotPassword}
+                  className="form-input"
+                  style={{ paddingLeft: "44px" }}
+                  placeholder="Sua senha secreta"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <button type="submit" className="btn" disabled={loading}>
             {loading ? (
               <span className="spinner"></span>
             ) : (
               <>
-                {isRegister ? (
+                {isForgotPassword ? (
+                  <>
+                    <Mail size={18} className="btn-icon" />
+                    Enviar Link de Recuperação
+                  </>
+                ) : isRegister ? (
                   <>
                     <UserPlus size={18} className="btn-icon" />
                     Criar Conta
@@ -239,17 +262,58 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <button 
-          onClick={() => {
-            setIsRegister(!isRegister);
-            setError("");
-            setSuccess("");
-          }}
-          className="btn btn-secondary"
-          disabled={loading}
-        >
-          {isRegister ? "Já possui conta? Faça Login" : "Novo usuário? Cadastre-se"}
-        </button>
+        {isForgotPassword ? (
+          <button 
+            onClick={() => {
+              setIsForgotPassword(false);
+              setError("");
+              setSuccess("");
+            }}
+            className="btn btn-secondary"
+            disabled={loading}
+          >
+            Voltar para o Login
+          </button>
+        ) : (
+          <>
+            <button 
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setError("");
+                setSuccess("");
+              }}
+              className="btn btn-secondary"
+              disabled={loading}
+              style={{ marginBottom: "10px" }}
+            >
+              {isRegister ? "Já possui conta? Faça Login" : "Novo usuário? Cadastre-se"}
+            </button>
+
+            {!isRegister && (
+              <div style={{ textAlign: "center", marginTop: "12px" }}>
+                <button
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setError("");
+                    setSuccess("");
+                  }}
+                  type="button"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-dark-muted)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    transition: "var(--transition)"
+                  }}
+                >
+                  Esqueceu a senha? Redefinir
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
