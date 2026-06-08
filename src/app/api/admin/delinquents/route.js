@@ -19,6 +19,7 @@ export async function GET(req) {
             registration: "PT-XYZ",
             companyName: "Táxi Aéreo Exemplo Ltda",
             taxId: "12.345.678/0001-90",
+            observations: "Inadimplência de tarifas aeroportuárias",
             createdAt: new Date(Date.now() - 86400000).toISOString()
           }
         ];
@@ -33,7 +34,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const { action, id, registration, companyName, taxId } = await req.json();
+    const { action, id, registration, companyName, taxId, observations } = await req.json();
 
     if (action === "add") {
       if (!registration || !companyName || !taxId) {
@@ -44,6 +45,7 @@ export async function POST(req) {
         registration: registration.trim().toUpperCase(),
         companyName: companyName.trim(),
         taxId: taxId.trim(),
+        observations: observations ? observations.trim() : "",
         createdAt: new Date().toISOString()
       };
 

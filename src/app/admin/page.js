@@ -52,6 +52,7 @@ export default function AdminPage() {
   const [delinquentRegistration, setDelinquentRegistration] = useState("");
   const [delinquentTaxId, setDelinquentTaxId] = useState("");
   const [delinquentCompanyName, setDelinquentCompanyName] = useState("");
+  const [delinquentObservations, setDelinquentObservations] = useState("");
 
   const fetchDelinquents = async () => {
     setDelinquentsListLoading(true);
@@ -277,7 +278,8 @@ export default function AdminPage() {
           action: "add",
           registration: delinquentRegistration.trim().toUpperCase(),
           taxId: delinquentTaxId.trim(),
-          companyName: delinquentCompanyName.trim()
+          companyName: delinquentCompanyName.trim(),
+          observations: delinquentObservations.trim()
         })
       });
 
@@ -288,6 +290,7 @@ export default function AdminPage() {
       setDelinquentRegistration("");
       setDelinquentTaxId("");
       setDelinquentCompanyName("");
+      setDelinquentObservations("");
       
       await fetchDelinquents();
       setTimeout(() => setSuccessMsg(""), 4000);
@@ -825,6 +828,18 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Observações</label>
+                  <textarea 
+                    className="form-input" 
+                    style={{ minHeight: "80px", resize: "vertical" }}
+                    placeholder="Informações adicionais sobre o motivo da inadimplência ou restrição..."
+                    value={delinquentObservations}
+                    onChange={e => setDelinquentObservations(e.target.value)}
+                    disabled={delinquentActionLoading}
+                  />
+                </div>
+
                 <button 
                   type="submit" 
                   className="btn" 
@@ -864,6 +879,7 @@ export default function AdminPage() {
                         <th>Matrícula</th>
                         <th>Empresa</th>
                         <th>CNPJ/CPF</th>
+                        <th>Observações</th>
                         <th>Cadastrado em</th>
                         <th>Ações</th>
                       </tr>
@@ -874,6 +890,13 @@ export default function AdminPage() {
                           <td style={{ fontWeight: "bold", color: "var(--accent)" }}>{ac.registration}</td>
                           <td>{ac.companyName}</td>
                           <td>{ac.taxId}</td>
+                          <td>
+                            {ac.observations ? (
+                              <span style={{ fontSize: "12px", color: "var(--text-dark)" }}>{ac.observations}</span>
+                            ) : (
+                              <span style={{ fontSize: "12px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>Sem observações</span>
+                            )}
+                          </td>
                           <td style={{ fontSize: "12px", color: "var(--text-dark-muted)" }}>
                             {new Date(ac.createdAt).toLocaleDateString("pt-BR")}
                           </td>
