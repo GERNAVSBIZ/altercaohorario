@@ -93,24 +93,56 @@ export async function POST(req) {
       }
     }
 
-    // 2. Check if aircraft is delinquent
+    // 2. Check if aircraft/operator is delinquent
     let isDelinquent = false;
     const registrationToCheck = dbData.aircraft?.registration?.trim()?.toUpperCase();
-    if (registrationToCheck) {
-      if (adminDb) {
+    const taxIdToCheck = dbData.company?.taxId?.trim();
+
+    if (adminDb) {
+      // A. Check by registration
+      if (registrationToCheck) {
         const snap = await adminDb.collection("delinquents")
           .where("registration", "==", registrationToCheck)
           .get();
         if (!snap.empty) {
           isDelinquent = true;
         }
-      } else {
-        // Sandbox check
-        const mockDelinquents = global.mockDelinquents || [
-          { registration: "PT-XYZ" }
-        ];
-        isDelinquent = mockDelinquents.some(d => d.registration?.trim()?.toUpperCase() === registrationToCheck);
       }
+
+      // B. Check by taxId (CNPJ/CPF)
+      if (!isDelinquent && taxIdToCheck) {
+        const snap = await adminDb.collection("delinquents")
+          .where("taxId", "==", taxIdToCheck)
+          .get();
+        if (!snap.empty) {
+          isDelinquent = true;
+        } else {
+          // Normalize and perform fallback comparison
+          const normalizedTaxIdToCheck = taxIdToCheck.replace(/\D/g, "");
+          if (normalizedTaxIdToCheck) {
+            const allDelinquentsSnap = await adminDb.collection("delinquents").get();
+            allDelinquentsSnap.forEach((doc) => {
+              const d = doc.data();
+              if (d.taxId && d.taxId.replace(/\D/g, "") === normalizedTaxIdToCheck) {
+                isDelinquent = true;
+              }
+            });
+          }
+        }
+      }
+    } else {
+      // Sandbox check
+      const mockDelinquents = global.mockDelinquents || [
+        { registration: "PT-XYZ", taxId: "12.345.678/0001-90" }
+      ];
+      const normalizedTaxIdToCheck = taxIdToCheck ? taxIdToCheck.replace(/\D/g, "") : "";
+      
+      isDelinquent = mockDelinquents.some((d) => {
+        const regMatch = registrationToCheck && d.registration?.trim()?.toUpperCase() === registrationToCheck;
+        const normalizedDTaxId = d.taxId ? d.taxId.replace(/\D/g, "") : "";
+        const taxMatch = normalizedTaxIdToCheck && normalizedDTaxId === normalizedTaxIdToCheck;
+        return regMatch || taxMatch;
+      });
     }
 
     // 3. Define requestData and persist updates
