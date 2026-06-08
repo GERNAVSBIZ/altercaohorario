@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   History,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  Clock
 } from "lucide-react";
 
 export default function DashboardPage() {
