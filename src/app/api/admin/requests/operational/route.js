@@ -46,9 +46,8 @@ export async function POST(req) {
   try {
     const { 
       id, 
-      registration, 
-      periodStart, 
-      periodEnd, 
+      opPeriodStart, 
+      opPeriodEnd, 
       opServedBy, 
       opBillingStatus, 
       opInvoiceId, 
@@ -61,6 +60,8 @@ export async function POST(req) {
     }
 
     const opData = {
+      opPeriodStart: opPeriodStart || "",
+      opPeriodEnd: opPeriodEnd || "",
       opServedBy: opServedBy || "",
       opBillingStatus: opBillingStatus || "Não",
       opInvoiceId: opInvoiceId || "",
@@ -76,19 +77,7 @@ export async function POST(req) {
         return NextResponse.json({ error: "Solicitação não encontrada." }, { status: 404 });
       }
 
-      // Build update object, updating nested fields using dot notation
-      const updateData = { ...opData };
-      if (registration !== undefined) {
-        updateData["aircraft.registration"] = (registration || "").trim().toUpperCase();
-      }
-      if (periodStart !== undefined) {
-        updateData["period.start"] = periodStart;
-      }
-      if (periodEnd !== undefined) {
-        updateData["period.end"] = periodEnd;
-      }
-
-      await docRef.update(updateData);
+      await docRef.update(opData);
       return NextResponse.json({ success: true, message: "Dados operacionais salvos com sucesso." });
     } else {
       // Sandbox mock update
@@ -97,48 +86,20 @@ export async function POST(req) {
         global.mockRequests = global.mockRequests.map((r) => {
           if (r.id === id) {
             found = true;
-            const updatedRequest = {
+            return {
               ...r,
               ...opData,
             };
-            if (registration !== undefined) {
-              updatedRequest.aircraft = {
-                ...(updatedRequest.aircraft || {}),
-                registration: (registration || "").trim().toUpperCase()
-              };
-            }
-            if (periodStart !== undefined || periodEnd !== undefined) {
-              updatedRequest.period = {
-                ...(updatedRequest.period || {}),
-                start: periodStart !== undefined ? periodStart : r.period?.start,
-                end: periodEnd !== undefined ? periodEnd : r.period?.end
-              };
-            }
-            return updatedRequest;
           }
           return r;
         });
         
         // Also update lastMockRequest if it matches
         if (global.lastMockRequest && global.lastMockRequest.id === id) {
-          const updatedRequest = {
+          global.lastMockRequest = {
             ...global.lastMockRequest,
             ...opData,
           };
-          if (registration !== undefined) {
-            updatedRequest.aircraft = {
-              ...(updatedRequest.aircraft || {}),
-              registration: (registration || "").trim().toUpperCase()
-            };
-          }
-          if (periodStart !== undefined || periodEnd !== undefined) {
-            updatedRequest.period = {
-              ...(updatedRequest.period || {}),
-              start: periodStart !== undefined ? periodStart : global.lastMockRequest.period?.start,
-              end: periodEnd !== undefined ? periodEnd : global.lastMockRequest.period?.end
-            };
-          }
-          global.lastMockRequest = updatedRequest;
         }
 
         if (!found) {

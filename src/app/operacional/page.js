@@ -20,6 +20,98 @@ import {
   CalendarDays
 } from "lucide-react";
 
+// Helper to calculate actual attendance duration, anticipation, and extension based on operator shift boundaries (00:00 - 17:50)
+const renderAttendanceDetails = (req) => {
+  const reqStart = new Date(req.period?.start);
+  const reqEnd = new Date(req.period?.end);
+  
+  // Default actual times to requested times if not explicitly set
+  const actStart = new Date(req.opPeriodStart || req.period?.start);
+  const actEnd = new Date(req.opPeriodEnd || req.period?.end);
+
+  if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime()) || isNaN(actStart.getTime()) || isNaN(actEnd.getTime())) {
+    return <span style={{ color: "var(--text-dark-muted)" }}>-</span>;
+  }
+
+  const durationMin = Math.round((actEnd - actStart) / 60000);
+  const durationHours = Math.floor(durationMin / 60);
+  const durationMinsLeft = durationMin % 60;
+
+  // Shift Limits: 00:00 and 17:50 local time on the day of the flight
+  const shiftStartLimit = new Date(reqStart);
+  shiftStartLimit.setHours(0, 0, 0, 0);
+
+  const shiftEndLimit = new Date(reqEnd);
+  shiftEndLimit.setHours(17, 50, 0, 0);
+
+  // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
+  let antMin = 0;
+  if (actStart < shiftStartLimit) {
+    const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
+    antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
+  }
+
+  // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
+  let prorMin = 0;
+  if (actEnd > shiftEndLimit) {
+    const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
+    prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
+  }
+
+  return (
+    <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
+      <div>
+        <strong>Duração:</strong> {durationHours}h {durationMinsLeft}m
+      </div>
+      {antMin > 0 && (
+        <div style={{ color: "#3b82f6", fontSize: "11.5px", marginTop: "2px", fontWeight: "600" }}>
+          • Antecipou {Math.floor(antMin / 60) > 0 ? `${Math.floor(antMin / 60)}h ` : ""}{antMin % 60}m
+        </div>
+      )}
+      {prorMin > 0 && (
+        <div style={{ color: "#ef5b25", fontSize: "11.5px", marginTop: "2px", fontWeight: "600" }}>
+          • Prorrogou {Math.floor(prorMin / 60) > 0 ? `${Math.floor(prorMin / 60)}h ` : ""}{prorMin % 60}m
+        </div>
+      )}
+      {antMin <= 0 && prorMin <= 0 && (
+        <div style={{ color: "var(--text-dark-muted)", fontSize: "11px", marginTop: "2px", fontStyle: "italic" }}>
+          No horário regulamentar
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Months list for display
+const monthsNames = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+// Helper to extract the month index from request's actual or requested start date
+const getRequestMonth = (req) => {
+  const dateStr = req.opPeriodStart || req.period?.start;
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? null : date.getMonth(); // returns 0-11
+};
+
+// Helper to format minutes to "Xh YYm"
+const formatMinToHours = (totalMinutes) => {
+  if (totalMinutes <= 0) return "0h 00m";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+};
+
+// Helper to extract the year from request's actual or requested start date
+const getRequestYear = (req) => {
+  const dateStr = req.opPeriodStart || req.period?.start;
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? null : date.getFullYear();
+};
+
 export default function OperationalPage() {
   const router = useRouter();
   
@@ -34,13 +126,17 @@ export default function OperationalPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isMock, setIsMock] = useState(false);
+  const [operators, setOperators] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState("Todos");
+  const [selectedOperator, setSelectedOperator] = useState("Todos");
+  const [showReport, setShowReport] = useState(true);
+  const [selectedYear, setSelectedYear] = useState("Todos");
 
   // Edit States
   const [editingId, setEditingId] = useState(null);
   const [editFields, setEditFields] = useState({
-    registration: "",
-    periodStart: "",
-    periodEnd: "",
+    opPeriodStart: "",
+    opPeriodEnd: "",
     opServedBy: "",
     opBillingStatus: "Não",
     opInvoiceId: "",
@@ -69,6 +165,18 @@ export default function OperationalPage() {
         setIsMock(data.mock || false);
       } else {
         throw new Error(data.error || "Erro ao buscar dados operacionais.");
+      }
+
+      // Fetch settings to parse the operator list
+      const settingsRes = await fetch("/api/admin/settings");
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        const opListStr = settingsData.settings?.operatorsList || "";
+        const parsedOperators = opListStr
+          .split(",")
+          .map(o => o.trim())
+          .filter(Boolean);
+        setOperators(parsedOperators);
       }
     } catch (err) {
       console.error("Fetch operational error:", err);
@@ -102,35 +210,45 @@ export default function OperationalPage() {
           isUserAuthorized = 
             lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
             lowerEmail === "gernavsbiz@gmail.com" ||
-            lowerEmail === "developer@sbiz.local";
+            lowerEmail === "developer@sbiz.local" ||
+            lowerEmail === "operador@sbiz.local";
         }
         
-        if (!isUserAuthorized && db) {
+        if (!isUserAuthorized) {
+          // Check settings (admins and operators lists)
           try {
             const settingsRes = await fetch("/api/admin/settings");
             if (settingsRes.ok) {
               const settingsData = await settingsRes.json();
+              
               const allowedAdminsStr = settingsData.settings?.adminEmails || "";
               const allowedAdmins = allowedAdminsStr
                 .split(/[,;]/)
                 .map(e => e.trim().toLowerCase())
                 .filter(e => e.length > 0);
 
-              if (allowedAdmins.includes(lowerEmail)) {
+              const allowedOperatorsStr = settingsData.settings?.operationalEmails || "";
+              const allowedOperators = allowedOperatorsStr
+                .split(/[,;]/)
+                .map(e => e.trim().toLowerCase())
+                .filter(e => e.length > 0);
+
+              if (allowedAdmins.includes(lowerEmail) || allowedOperators.includes(lowerEmail)) {
                 isUserAuthorized = true;
               }
             }
           } catch (settingsErr) {
-            console.error("Error reading adminEmails settings:", settingsErr);
+            console.error("Error checking settings for authorization:", settingsErr);
           }
 
-          if (!isUserAuthorized) {
+          // Check database profile role
+          if (!isUserAuthorized && db) {
             try {
               const profileRef = doc(db, "profiles", currentUser.uid);
               const profileSnap = await getDoc(profileRef);
               if (profileSnap.exists()) {
                 const profileData = profileSnap.data();
-                if (profileData.role === "admin") {
+                if (profileData.role === "admin" || profileData.role === "operator" || profileData.role === "operational") {
                   isUserAuthorized = true;
                 }
               }
@@ -156,9 +274,8 @@ export default function OperationalPage() {
   const handleStartEdit = (req) => {
     setEditingId(req.id);
     setEditFields({
-      registration: req.aircraft?.registration || "",
-      periodStart: toLocalISOString(req.period?.start),
-      periodEnd: toLocalISOString(req.period?.end),
+      opPeriodStart: toLocalISOString(req.opPeriodStart || req.period?.start),
+      opPeriodEnd: toLocalISOString(req.opPeriodEnd || req.period?.end),
       opServedBy: req.opServedBy || "",
       opBillingStatus: req.opBillingStatus || "Não",
       opInvoiceId: req.opInvoiceId || "",
@@ -178,8 +295,10 @@ export default function OperationalPage() {
 
     try {
       // Validate dates
-      if (new Date(editFields.periodStart) >= new Date(editFields.periodEnd)) {
-        throw new Error("A data de término deve ser posterior à data de início.");
+      if (editFields.opPeriodStart && editFields.opPeriodEnd) {
+        if (new Date(editFields.opPeriodStart) >= new Date(editFields.opPeriodEnd)) {
+          throw new Error("A data de término do atendimento deve ser posterior à data de início.");
+        }
       }
 
       const response = await fetch("/api/admin/requests/operational", {
@@ -187,9 +306,8 @@ export default function OperationalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          registration: editFields.registration,
-          periodStart: new Date(editFields.periodStart).toISOString(),
-          periodEnd: new Date(editFields.periodEnd).toISOString(),
+          opPeriodStart: editFields.opPeriodStart ? new Date(editFields.opPeriodStart).toISOString() : "",
+          opPeriodEnd: editFields.opPeriodEnd ? new Date(editFields.opPeriodEnd).toISOString() : "",
           opServedBy: editFields.opServedBy,
           opBillingStatus: editFields.opBillingStatus,
           opInvoiceId: editFields.opInvoiceId,
@@ -226,17 +344,120 @@ export default function OperationalPage() {
     }
   };
 
+  // Extract all available years from operational requests dynamically
+  const availableYears = Array.from(new Set(requests.map(r => getRequestYear(r)).filter(Boolean))).sort((a, b) => b - a);
+
   // Filter requests
   const filteredRequests = requests.filter(r => {
     const query = searchQuery.toLowerCase();
-    return (
+    
+    // 1. Search Query match
+    const matchesQuery = (
       r.id.toLowerCase().includes(query) ||
       r.company?.name?.toLowerCase().includes(query) ||
       r.aircraft?.registration?.toLowerCase().includes(query) ||
       r.opServedBy?.toLowerCase().includes(query) ||
       r.opInvoiceId?.toLowerCase().includes(query)
     );
+
+    // 2. Month match
+    let matchesMonth = true;
+    if (selectedMonth !== "Todos") {
+      const monthIdx = getRequestMonth(r);
+      matchesMonth = monthIdx === parseInt(selectedMonth);
+    }
+
+    // 3. Operator match
+    let matchesOperator = true;
+    if (selectedOperator !== "Todos") {
+      matchesOperator = r.opServedBy === selectedOperator;
+    }
+
+    // 4. Year match
+    let matchesYear = true;
+    if (selectedYear !== "Todos") {
+      const year = getRequestYear(r);
+      matchesYear = year === parseInt(selectedYear);
+    }
+
+    return matchesQuery && matchesMonth && matchesOperator && matchesYear;
   });
+
+  // Calculate report data grouped by operator, filtered by selected month, year and operator
+  const reportRequestsList = requests.filter(r => {
+    let matchesMonth = true;
+    if (selectedMonth !== "Todos") {
+      const monthIdx = getRequestMonth(r);
+      matchesMonth = monthIdx === parseInt(selectedMonth);
+    }
+
+    let matchesOperator = true;
+    if (selectedOperator !== "Todos") {
+      matchesOperator = r.opServedBy === selectedOperator;
+    }
+
+    let matchesYear = true;
+    if (selectedYear !== "Todos") {
+      const year = getRequestYear(r);
+      matchesYear = year === parseInt(selectedYear);
+    }
+
+    return matchesMonth && matchesOperator && matchesYear;
+  });
+
+  const getReportData = () => {
+    const report = {};
+
+    reportRequestsList.forEach(req => {
+      const op = req.opServedBy;
+      if (!op) return; // Ignore if no operator is set yet
+
+      if (!report[op]) {
+        report[op] = { name: op, count: 0, durationMin: 0, antMin: 0, prorMin: 0 };
+      }
+
+      const reqStart = new Date(req.period?.start);
+      const reqEnd = new Date(req.period?.end);
+      const actStart = new Date(req.opPeriodStart || req.period?.start);
+      const actEnd = new Date(req.opPeriodEnd || req.period?.end);
+
+      if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime()) || isNaN(actStart.getTime()) || isNaN(actEnd.getTime())) {
+        return;
+      }
+
+      const durationMin = Math.round((actEnd - actStart) / 60000);
+
+      // Shift Limits: 00:00 and 17:50 local time on the day of the flight
+      const shiftStartLimit = new Date(reqStart);
+      shiftStartLimit.setHours(0, 0, 0, 0);
+
+      const shiftEndLimit = new Date(reqEnd);
+      shiftEndLimit.setHours(17, 50, 0, 0);
+
+      // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
+      let antMin = 0;
+      if (actStart < shiftStartLimit) {
+        const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
+        antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
+      }
+
+      // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
+      let prorMin = 0;
+      if (actEnd > shiftEndLimit) {
+        const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
+        prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
+      }
+
+      report[op].count += 1;
+      report[op].durationMin += durationMin;
+      report[op].antMin += antMin;
+      report[op].prorMin += prorMin;
+    });
+
+    return Object.values(report).sort((a, b) => b.durationMin - a.durationMin);
+  };
+
+  const reportData = getReportData();
 
   if (authLoading) {
     return (
@@ -332,21 +553,165 @@ export default function OperationalPage() {
           </div>
         )}
 
-        {/* Filter Input */}
-        <div className="form-group" style={{ marginBottom: "20px" }}>
-          <div style={{ position: "relative" }}>
-            <Search size={16} style={{ position: "absolute", left: "14px", top: "15px", color: "var(--text-dark-muted)" }} />
+        {/* Filters Panel */}
+        <div style={{ 
+          display: "flex", 
+          gap: "16px", 
+          marginBottom: "20px", 
+          flexWrap: "wrap",
+          alignItems: "flex-end"
+        }}>
+          {/* Search bar */}
+          <div style={{ flex: "1", minWidth: "250px", position: "relative" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", display: "block", marginBottom: "6px", fontWeight: "600" }}>
+              Pesquisar
+            </span>
+            <Search size={16} style={{ position: "absolute", left: "14px", bottom: "12px", color: "var(--text-dark-muted)" }} />
             <input 
               type="text" 
               className="form-input" 
-              style={{ paddingLeft: "42px" }}
-              placeholder="Pesquisar por ID, empresa, matrícula, fatura ou operador..."
+              style={{ paddingLeft: "42px", height: "40px" }}
+              placeholder="Empresa, matrícula, fatura, operador..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               disabled={loading}
             />
           </div>
+
+          {/* Month selector */}
+          <div style={{ width: "160px", minWidth: "140px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", display: "block", marginBottom: "6px", fontWeight: "600" }}>
+              Filtrar por Mês
+            </span>
+            <select
+              className="form-input"
+              style={{ height: "40px", padding: "8px 12px" }}
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Todos">Todos os Meses</option>
+              {monthsNames.map((name, idx) => (
+                <option key={idx} value={idx.toString()}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Year selector */}
+          <div style={{ width: "130px", minWidth: "110px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", display: "block", marginBottom: "6px", fontWeight: "600" }}>
+              Filtrar por Ano
+            </span>
+            <select
+              className="form-input"
+              style={{ height: "40px", padding: "8px 12px" }}
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Todos">Todos os Anos</option>
+              {availableYears.map(year => (
+                <option key={year} value={year.toString()}>{year}</option>
+              ))}
+              {availableYears.length === 0 && (
+                <option value="2026">2026</option>
+              )}
+            </select>
+          </div>
+
+          {/* Operator selector */}
+          <div style={{ width: "220px", minWidth: "180px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", display: "block", marginBottom: "6px", fontWeight: "600" }}>
+              Filtrar por Operador
+            </span>
+            <select
+              className="form-input"
+              style={{ height: "40px", padding: "8px 12px" }}
+              value={selectedOperator}
+              onChange={e => setSelectedOperator(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Todos">Todos os Operadores</option>
+              {operators.map((op, idx) => (
+                <option key={idx} value={op}>{op}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Report toggle button */}
+          <button 
+            onClick={() => setShowReport(!showReport)}
+            className="admin-action-btn"
+            style={{ 
+              height: "40px", 
+              padding: "0 16px", 
+              fontSize: "13px", 
+              display: "inline-flex", 
+              alignItems: "center", 
+              gap: "6px",
+              borderColor: showReport ? "var(--accent)" : "rgba(255,255,255,0.15)",
+              color: showReport ? "white" : "var(--text-dark-muted)"
+            }}
+            title="Exibir ou ocultar tabela de relatório mensal consolidado"
+          >
+            <FileText size={16} style={{ color: showReport ? "var(--accent)" : "inherit" }} />
+            <span>{showReport ? "Ocultar Relatório" : "Ver Relatório"}</span>
+          </button>
         </div>
+
+        {/* Report Card */}
+        {showReport && (
+          <div className="card" style={{ 
+            padding: "20px", 
+            marginBottom: "20px", 
+            backgroundColor: "rgba(255, 255, 255, 0.02)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            animation: "fadeIn 0.2s ease-out"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+              <h3 style={{ fontSize: "15px", color: "white", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+                <FileText size={18} style={{ color: "var(--accent)" }} />
+                <span>
+                  Relatório Consolidado — {selectedMonth === "Todos" ? "Todos os Meses" : monthsNames[parseInt(selectedMonth)]} {selectedYear === "Todos" ? "de Todos os Anos" : `de ${selectedYear}`}
+                </span>
+              </h3>
+              <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+                * Calculado a partir de atendimentos finalizados com operador atribuído
+              </span>
+            </div>
+            
+            {reportData.length === 0 ? (
+              <p style={{ fontSize: "13px", color: "var(--text-dark-muted)", textAlign: "center", padding: "16px 0", margin: 0, fontStyle: "italic" }}>
+                Nenhum atendimento operacional registrado para o período de {selectedMonth === "Todos" ? "todos os meses" : monthsNames[parseInt(selectedMonth)]}.
+              </p>
+            ) : (
+              <div className="admin-table-container" style={{ maxHeight: "350px", overflowY: "auto", margin: 0 }}>
+                <table className="admin-table" style={{ fontSize: "13.5px" }}>
+                  <thead>
+                    <tr>
+                      <th>Operador PNA/OEA</th>
+                      <th style={{ textAlign: "center", width: "160px" }}>Qtd. Atendimentos</th>
+                      <th style={{ textAlign: "center", width: "220px" }}>Tempo Total Atendido</th>
+                      <th style={{ textAlign: "center", width: "200px" }}>Total Antecipado</th>
+                      <th style={{ textAlign: "center", width: "200px" }}>Total Prorrogado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.map((row) => (
+                      <tr key={row.name}>
+                        <td style={{ fontWeight: "bold", color: "white" }}>{row.name}</td>
+                        <td style={{ textAlign: "center", fontWeight: "600" }}>{row.count}</td>
+                        <td style={{ textAlign: "center", color: "var(--accent)", fontWeight: "600" }}>{formatMinToHours(row.durationMin)}</td>
+                        <td style={{ textAlign: "center", color: "#3b82f6", fontWeight: "600" }}>{formatMinToHours(row.antMin)}</td>
+                        <td style={{ textAlign: "center", color: "#ef5b25", fontWeight: "600" }}>{formatMinToHours(row.prorMin)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Data List */}
         {loading && requests.length === 0 ? (
@@ -371,6 +736,8 @@ export default function OperationalPage() {
                   <th style={{ minWidth: "150px" }}>Empresa Solicitante</th>
                   <th style={{ width: "110px" }}>Matrícula</th>
                   <th style={{ minWidth: "180px" }}>Período Alteração</th>
+                  <th style={{ minWidth: "180px" }}>Atendimento PNA/OEA</th>
+                  <th style={{ minWidth: "180px" }}>Prorrogação / Antecipação</th>
                   <th style={{ minWidth: "150px" }}>Operador (PNA/OEA)</th>
                   <th style={{ width: "120px" }}>Cobrança Realizada</th>
                   <th style={{ width: "130px" }}>ID Fatura</th>
@@ -397,22 +764,20 @@ export default function OperationalPage() {
                       
                       {/* Matrícula */}
                       <td>
-                        {isEditing ? (
-                          <input 
-                            type="text"
-                            className="form-input"
-                            style={{ padding: "8px", fontSize: "12.5px" }}
-                            value={editFields.registration}
-                            onChange={e => setEditFields({ ...editFields, registration: e.target.value.toUpperCase() })}
-                          />
-                        ) : (
-                          <span style={{ fontWeight: "bold", color: "var(--accent)" }}>
-                            {req.aircraft?.registration || "-"}
-                          </span>
-                        )}
+                        <span style={{ fontWeight: "bold", color: "var(--accent)" }}>
+                          {req.aircraft?.registration || "-"}
+                        </span>
                       </td>
                       
                       {/* Período Alteração */}
+                      <td>
+                        <div style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                          <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR")}</div>
+                          <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR")}</div>
+                        </div>
+                      </td>
+
+                      {/* Atendimento PNA/OEA */}
                       <td>
                         {isEditing ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -422,8 +787,8 @@ export default function OperationalPage() {
                                 type="datetime-local"
                                 className="form-input"
                                 style={{ padding: "6px", fontSize: "11px", height: "auto" }}
-                                value={editFields.periodStart}
-                                onChange={e => setEditFields({ ...editFields, periodStart: e.target.value })}
+                                value={editFields.opPeriodStart}
+                                onChange={e => setEditFields({ ...editFields, opPeriodStart: e.target.value })}
                               />
                             </div>
                             <div>
@@ -432,30 +797,44 @@ export default function OperationalPage() {
                                 type="datetime-local"
                                 className="form-input"
                                 style={{ padding: "6px", fontSize: "11px", height: "auto" }}
-                                value={editFields.periodEnd}
-                                onChange={e => setEditFields({ ...editFields, periodEnd: e.target.value })}
+                                value={editFields.opPeriodEnd}
+                                onChange={e => setEditFields({ ...editFields, opPeriodEnd: e.target.value })}
                               />
                             </div>
                           </div>
                         ) : (
                           <div style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
-                            <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR")}</div>
-                            <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR")}</div>
+                            {req.opPeriodStart ? (
+                              <>
+                                <div><strong>De:</strong> {new Date(req.opPeriodStart).toLocaleString("pt-BR")}</div>
+                                <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.opPeriodEnd).toLocaleString("pt-BR")}</div>
+                              </>
+                            ) : (
+                              <div style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Mesmo da Alteração</div>
+                            )}
                           </div>
                         )}
+                      </td>
+
+                      {/* Prorrogação / Antecipação */}
+                      <td>
+                        {renderAttendanceDetails(req)}
                       </td>
 
                       {/* Operador (PNA/OEA) */}
                       <td>
                         {isEditing ? (
-                          <input 
-                            type="text"
+                          <select 
                             className="form-input"
-                            style={{ padding: "8px", fontSize: "12.5px" }}
-                            placeholder="Nome / Registro"
+                            style={{ padding: "8px", fontSize: "12.5px", height: "38px" }}
                             value={editFields.opServedBy}
                             onChange={e => setEditFields({ ...editFields, opServedBy: e.target.value })}
-                          />
+                          >
+                            <option value="">Selecione...</option>
+                            {operators.map((op, idx) => (
+                              <option key={idx} value={op}>{op}</option>
+                            ))}
+                          </select>
                         ) : (
                           <span>{req.opServedBy || <span style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Pendente</span>}</span>
                         )}

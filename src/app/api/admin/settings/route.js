@@ -8,7 +8,9 @@ export async function GET(req) {
       emailSubjectPrefix: "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ",
       customNotes: "",
       adminEmails: "adriano.matos@navbrasil.gov.br, gernavsbiz@gmail.com",
-      ccDecisionEmails: ""
+      ccDecisionEmails: "",
+      operatorsList: "Adriano Matos, João Silva, Marcos Souza",
+      operationalEmails: ""
     };
 
     if (adminDb) {
@@ -39,7 +41,7 @@ export async function POST(req) {
   try {
     const data = await req.json();
 
-    const { airportAdminEmail, emailSubjectPrefix, customNotes, adminEmails, ccDecisionEmails } = data;
+    const { airportAdminEmail, emailSubjectPrefix, customNotes, adminEmails, ccDecisionEmails, operatorsList, operationalEmails } = data;
     if (!airportAdminEmail) {
       return NextResponse.json(
         { error: "O e-mail administrativo é obrigatório." },
@@ -53,6 +55,8 @@ export async function POST(req) {
       customNotes: customNotes || "",
       adminEmails: adminEmails || "",
       ccDecisionEmails: ccDecisionEmails || "",
+      operatorsList: operatorsList || "",
+      operationalEmails: operationalEmails || "",
       updatedAt: new Date().toISOString()
     };
 

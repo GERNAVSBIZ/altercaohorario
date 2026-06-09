@@ -28,6 +28,7 @@ export default function LoginPage() {
     const lowerEmail = email.toLowerCase();
     
     let isAdmin = lowerEmail === "wilkson.carvalho@navbrasil.gov.br";
+    let isOperational = false;
 
     if (!db) {
       // Sandbox mode check
@@ -36,8 +37,12 @@ export default function LoginPage() {
         lowerEmail === "gernavsbiz@gmail.com" ||
         lowerEmail === "developer@sbiz.local";
       
+      isOperational = lowerEmail === "operador@sbiz.local";
+      
       if (isAdmin) {
         router.push("/admin");
+      } else if (isOperational) {
+        router.push("/operacional");
       } else {
         router.push("/dashboard");
       }
@@ -45,36 +50,46 @@ export default function LoginPage() {
     }
 
     try {
-      if (!isAdmin) {
-        const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-        if (profileSnap.exists()) {
-          const profileData = profileSnap.data();
-          if (profileData.role === "admin") {
-            isAdmin = true;
-          }
+      const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+      if (profileSnap.exists()) {
+        const profileData = profileSnap.data();
+        if (profileData.role === "admin") {
+          isAdmin = true;
+        } else if (profileData.role === "operator" || profileData.role === "operational") {
+          isOperational = true;
         }
       }
 
-      if (!isAdmin) {
-        const settingsRes = await fetch("/api/admin/settings");
-        if (settingsRes.ok) {
-          const settingsData = await settingsRes.json();
-          const allowedAdminsStr = settingsData.settings?.adminEmails || "";
-          const allowedAdmins = allowedAdminsStr
-            .split(/[,;]/)
-            .map(e => e.trim().toLowerCase())
-            .filter(e => e.length > 0);
-          if (allowedAdmins.includes(lowerEmail)) {
-            isAdmin = true;
-          }
+      const settingsRes = await fetch("/api/admin/settings");
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        
+        const allowedAdminsStr = settingsData.settings?.adminEmails || "";
+        const allowedAdmins = allowedAdminsStr
+          .split(/[,;]/)
+          .map(e => e.trim().toLowerCase())
+          .filter(e => e.length > 0);
+        if (allowedAdmins.includes(lowerEmail)) {
+          isAdmin = true;
+        }
+
+        const allowedOperatorsStr = settingsData.settings?.operationalEmails || "";
+        const allowedOperators = allowedOperatorsStr
+          .split(/[,;]/)
+          .map(e => e.trim().toLowerCase())
+          .filter(e => e.length > 0);
+        if (allowedOperators.includes(lowerEmail)) {
+          isOperational = true;
         }
       }
     } catch (err) {
-      console.error("Error checking admin privilege during redirect:", err);
+      console.error("Error checking privilege during redirect:", err);
     }
 
     if (isAdmin) {
       router.push("/admin");
+    } else if (isOperational) {
+      router.push("/operacional");
     } else {
       router.push("/dashboard");
     }

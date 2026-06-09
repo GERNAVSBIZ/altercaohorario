@@ -46,6 +46,8 @@ export default function AdminPage() {
   const [customNotes, setCustomNotes] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
   const [ccDecisionEmails, setCcDecisionEmails] = useState("");
+  const [operatorsList, setOperatorsList] = useState("");
+  const [operationalEmails, setOperationalEmails] = useState("");
 
   // Delinquents State
   const [delinquentAircrafts, setDelinquentAircrafts] = useState([]);
@@ -96,6 +98,8 @@ export default function AdminPage() {
       setCustomNotes(s.customNotes || "");
       setAdminEmails(s.adminEmails || "");
       setCcDecisionEmails(s.ccDecisionEmails || "");
+      setOperatorsList(s.operatorsList || "");
+      setOperationalEmails(s.operationalEmails || "");
       
       // 3. Fetch delinquents
       await fetchDelinquents();
@@ -204,7 +208,9 @@ export default function AdminPage() {
           emailSubjectPrefix,
           customNotes,
           adminEmails,
-          ccDecisionEmails
+          ccDecisionEmails,
+          operatorsList,
+          operationalEmails
         })
       });
 
@@ -827,6 +833,36 @@ export default function AdminPage() {
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
                   Texto dinâmico inserido como um destaque amarelo no corpo do e-mail oficial disparado para a gerência.
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Profissionais PNA/OEA (Operadores - separe por vírgula)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Adriano Matos, João Silva, Marcos Souza"
+                  value={operatorsList}
+                  onChange={e => setOperatorsList(e.target.value)}
+                  disabled={settingsLoading || loading}
+                />
+                <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                  Nomes dos operadores autorizados a atender prorrogações de horário. Estes nomes aparecerão na lista de seleção no Painel Operacional.
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">E-mails de Operadores (Acesso exclusivo ao Módulo Operacional - separe por vírgula)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="operador1@navbrasil.gov.br, operador2@navbrasil.gov.br"
+                  value={operationalEmails}
+                  onChange={e => setOperationalEmails(e.target.value)}
+                  disabled={settingsLoading || loading}
+                />
+                <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                  Endereços de e-mail autorizados a acessar EXCLUSIVAMENTE o Módulo Operacional. Estes usuários não poderão acessar a página administrativa de configurações.
                 </span>
               </div>
 
