@@ -58,6 +58,7 @@ export async function GET(req) {
           {
             id: "req_a1b2c3d4e5f6g7h8",
             status: "confirmed",
+            approvalStatus: "authorized",
             createdAt: new Date(Date.now() - 86400000).toISOString(),
             confirmedAt: new Date(Date.now() - 86000000).toISOString(),
             confirmationIp: "177.42.12.89",
@@ -87,7 +88,52 @@ export async function GET(req) {
               start: new Date(Date.now() + 86400000).toISOString(),
               end: new Date(Date.now() + 93600000).toISOString()
             },
-            notes: "Ajuste na malha devido a condições meteorológicas no aeroporto de origem."
+            notes: "Ajuste na malha devido a condições meteorológicas no aeroporto de origem.",
+            opServedBy: "João Silva (OEA)",
+            opBillingStatus: "Sim",
+            opInvoiceId: "FAT-2026-0041",
+            opNacaStatus: "Enviado",
+            opNotes: "Nenhuma observação operacional."
+          },
+          {
+            id: "req_z9y8x7w6v5u4t3s2",
+            status: "confirmed",
+            approvalStatus: "authorized",
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+            confirmedAt: new Date(Date.now() - 172000000).toISOString(),
+            confirmationIp: "200.18.99.42",
+            company: {
+              name: "Gol Linhas Aéreas",
+              taxId: "07.575.651/0001-59",
+              email: "escalas.sbiz@voegol.com.br",
+              phone: "(11) 5504-4000",
+              address: "Terminal Gol, SBIZ"
+            },
+            aircraft: {
+              operator: "Gol Linhas Aéreas",
+              typeQty: "B738 / 1",
+              registration: "PR-GUR"
+            },
+            requestor: {
+              name: "Amanda Lima",
+              role: "Controladora de Voo",
+              billingEmail: "faturamento@voegol.com.br"
+            },
+            pilot: {
+              name: "Rodrigo Alencar",
+              anacCode: "453210"
+            },
+            serviceType: "Regular (Passageiros)",
+            period: {
+              start: new Date(Date.now() + 172800000).toISOString(),
+              end: new Date(Date.now() + 180000000).toISOString()
+            },
+            notes: "Prorrogação solicitada por motivo de atraso do voo precedente.",
+            opServedBy: "",
+            opBillingStatus: "Não",
+            opInvoiceId: "",
+            opNacaStatus: "Pendente",
+            opNotes: ""
           }
         ];
       }

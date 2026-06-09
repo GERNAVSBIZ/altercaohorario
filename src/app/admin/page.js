@@ -450,10 +450,16 @@ export default function AdminPage() {
             letterSpacing: "0.05em"
           }}>ADMIN</span>
         </div>
-        <button onClick={() => router.push("/dashboard")} className="logout-btn" style={{ color: "white" }}>
-          <LayoutGrid size={15} />
-          <span>Formulário</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button onClick={() => router.push("/operacional")} className="logout-btn" style={{ color: "white" }}>
+            <History size={15} style={{ color: "#3b82f6" }} />
+            <span>Operacional</span>
+          </button>
+          <button onClick={() => router.push("/dashboard")} className="logout-btn" style={{ color: "white" }}>
+            <LayoutGrid size={15} />
+            <span>Formulário</span>
+          </button>
+        </div>
       </header>
 
       <main className="container" style={{ minHeight: "auto", padding: "24px 16px 60px 16px", maxWidth: "800px" }}>

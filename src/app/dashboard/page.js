@@ -396,15 +396,26 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {isAdmin && (
-            <button 
-              type="button"
-              onClick={() => router.push("/admin")} 
-              className="logout-btn" 
-              style={{ color: "var(--accent)", borderColor: "rgba(239, 91, 37, 0.2)", backgroundColor: "rgba(239, 91, 37, 0.05)", display: "flex", alignItems: "center", gap: "6px" }}
-            >
-              <ShieldCheck size={16} />
-              <span>Painel Admin</span>
-            </button>
+            <>
+              <button 
+                type="button"
+                onClick={() => router.push("/operacional")} 
+                className="logout-btn" 
+                style={{ color: "#3b82f6", borderColor: "rgba(59, 130, 246, 0.2)", backgroundColor: "rgba(59, 130, 246, 0.05)", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <History size={16} />
+                <span>Operacional</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => router.push("/admin")} 
+                className="logout-btn" 
+                style={{ color: "var(--accent)", borderColor: "rgba(239, 91, 37, 0.2)", backgroundColor: "rgba(239, 91, 37, 0.05)", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <ShieldCheck size={16} />
+                <span>Painel Admin</span>
+              </button>
+            </>
           )}
           <button onClick={handleLogout} className="logout-btn">
             <LogOut size={16} />
