@@ -147,8 +147,8 @@ function ConfirmPageContent() {
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", fontSize: "13px", color: "white" }}>
             <Clock size={14} style={{ color: "var(--accent)" }} />
             <span>
-              De {new Date(data?.period?.start).toLocaleString("pt-BR")}<br />
-              Até {new Date(data?.period?.end).toLocaleString("pt-BR")}
+              De {new Date(data?.period?.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}<br />
+              Até {new Date(data?.period?.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
             </span>
           </div>
         </div>

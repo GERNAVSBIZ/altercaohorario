@@ -631,8 +631,8 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
-                          <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR")}</div>
-                          <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR")}</div>
+                          <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                          <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                         </td>
                         <td>
                           {req.status === "confirmed" ? (
@@ -658,7 +658,7 @@ export default function AdminPage() {
                         <td style={{ fontSize: "11px", color: "var(--text-dark-muted)" }}>
                           {req.status === "confirmed" ? (
                             <>
-                              <div>{new Date(req.confirmedAt).toLocaleString("pt-BR")}</div>
+                              <div>{new Date(req.confirmedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                               <div style={{ fontFamily: "monospace", marginTop: "2px" }}>IP: {req.confirmationIp}</div>
                             </>
                           ) : (
@@ -1011,7 +1011,7 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td style={{ fontSize: "12px", color: "var(--text-dark-muted)" }}>
-                            {new Date(ac.createdAt).toLocaleDateString("pt-BR")}
+                            {new Date(ac.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                           </td>
                           <td>
                             <button 

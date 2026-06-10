@@ -113,8 +113,8 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
   const prefix = subjectPrefix || "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ";
   const subject = `${prefix} #${idShort} - ${requestData.company.name}`;
   
-  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR');
-  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR');
+  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   // Support comma or semicolon-separated emails
   const emails = typeof adminEmail === 'string'
@@ -186,7 +186,7 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
       <div style="background-color: #f5f5f5; border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 13px;">
         <strong>Informações do Registro:</strong><br/>
         ID da Solicitação: <code style="background-color: #eaeaea; padding: 2px 4px; border-radius: 3px;">${requestData.id}</code><br/>
-        Confirmado pelo Usuário em: ${new Date().toLocaleString('pt-BR')}<br/>
+        Confirmado pelo Usuário em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}<br/>
         E-mail de Contato: ${requestData.company.email}
       </div>
 
@@ -212,8 +212,8 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
   const prefix = subjectPrefix || "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ";
   const subject = `[PRÉ-REGISTRO] ${prefix} #${idShort} - ${requestData.company.name}`;
   
-  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR');
-  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR');
+  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   // Support comma or semicolon-separated emails
   const emails = typeof adminEmail === 'string'
@@ -283,7 +283,7 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
       <div style="background-color: #f5f5f5; border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 13px;">
         <strong>Informações do Registro:</strong><br/>
         ID da Solicitação: <code style="background-color: #eaeaea; padding: 2px 4px; border-radius: 3px;">${requestData.id}</code><br/>
-        Criado em: ${new Date(requestData.createdAt).toLocaleString('pt-BR')}<br/>
+        Criado em: ${new Date(requestData.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}<br/>
         E-mail do Operador: ${requestData.company.email}
       </div>
 
@@ -310,8 +310,8 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
   const statusLabel = isApproved ? "AUTORIZADA" : "RECUSADA";
   const subject = `[${statusLabel}] Solicitação de Prorrogação de Horário #${idShort} - SBIZ`;
 
-  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR');
-  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR');
+  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   const statusColor = isApproved ? "#2b8a3e" : "#c92a2a";
   const statusBg = isApproved ? "#ebfbee" : "#fff5f5";

@@ -20,6 +20,17 @@ import {
   CalendarDays
 } from "lucide-react";
 
+// Helper to construct a boundary Date strictly in Brasília time (UTC-3)
+const getBrasiliaBoundary = (dateObj, hour, minute) => {
+  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  const brOffsetMs = -3 * 60 * 60 * 1000;
+  const brDate = new Date(dateObj.getTime() + brOffsetMs);
+  const datePart = brDate.toISOString().slice(0, 10); // YYYY-MM-DD
+  const hourStr = hour.toString().padStart(2, '0');
+  const minStr = minute.toString().padStart(2, '0');
+  return new Date(`${datePart}T${hourStr}:${minStr}:00-03:00`);
+};
+
 // Helper to calculate actual attendance duration, anticipation, and extension based on operator shift boundaries (00:00 - 17:50)
 const renderAttendanceDetails = (req) => {
   const reqStart = new Date(req.period?.start);
@@ -37,23 +48,20 @@ const renderAttendanceDetails = (req) => {
   const durationHours = Math.floor(durationMin / 60);
   const durationMinsLeft = durationMin % 60;
 
-  // Shift Limits: 00:00 and 17:50 local time on the day of the flight
-  const shiftStartLimit = new Date(reqStart);
-  shiftStartLimit.setHours(0, 0, 0, 0);
-
-  const shiftEndLimit = new Date(reqEnd);
-  shiftEndLimit.setHours(17, 50, 0, 0);
+  // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
+  const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
+  const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
 
   // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
   let antMin = 0;
-  if (actStart < shiftStartLimit) {
+  if (shiftStartLimit && actStart < shiftStartLimit) {
     const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
     antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
   }
 
   // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
   let prorMin = 0;
-  if (actEnd > shiftEndLimit) {
+  if (shiftEndLimit && actEnd > shiftEndLimit) {
     const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
     prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
   }
@@ -88,12 +96,42 @@ const monthsNames = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
-// Helper to extract the month index from request's actual or requested start date
+// Helper to format ISO strings to Brasília local datetime-local format YYYY-MM-DDTHH:MM
+const toBrasiliaISOString = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  const brOffsetMs = -3 * 60 * 60 * 1000;
+  const brDate = new Date(date.getTime() + brOffsetMs);
+  return brDate.toISOString().slice(0, 16);
+};
+
+// Helper to parse local datetime-local string (YYYY-MM-DDTHH:MM) strictly as Brasília time (UTC-3)
+const parseBrasiliaDate = (localISOString) => {
+  if (!localISOString) return null;
+  if (localISOString.includes("Z") || /[-+]\d{2}:\d{2}$/.test(localISOString)) {
+    return new Date(localISOString);
+  }
+  return new Date(localISOString + "-03:00");
+};
+
+// Helper to format a date to Brasília date/time string display
+const formatToBrasiliaDateTime = (dateString) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "-";
+  return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+};
+
+// Helper to extract the month index from request's actual or requested start date in Brasília Time
 const getRequestMonth = (req) => {
   const dateStr = req.opPeriodStart || req.period?.start;
   if (!dateStr) return null;
   const date = new Date(dateStr);
-  return isNaN(date.getTime()) ? null : date.getMonth(); // returns 0-11
+  if (isNaN(date.getTime())) return null;
+  const brOffsetMs = -3 * 60 * 60 * 1000;
+  const brDate = new Date(date.getTime() + brOffsetMs);
+  return brDate.getUTCMonth(); // returns 0-11
 };
 
 // Helper to format minutes to "Xh YYm"
@@ -104,12 +142,15 @@ const formatMinToHours = (totalMinutes) => {
   return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
 };
 
-// Helper to extract the year from request's actual or requested start date
+// Helper to extract the year from request's actual or requested start date in Brasília Time
 const getRequestYear = (req) => {
   const dateStr = req.opPeriodStart || req.period?.start;
   if (!dateStr) return null;
   const date = new Date(dateStr);
-  return isNaN(date.getTime()) ? null : date.getFullYear();
+  if (isNaN(date.getTime())) return null;
+  const brOffsetMs = -3 * 60 * 60 * 1000;
+  const brDate = new Date(date.getTime() + brOffsetMs);
+  return brDate.getUTCFullYear();
 };
 
 export default function OperationalPage() {
@@ -144,15 +185,7 @@ export default function OperationalPage() {
     opNotes: ""
   });
 
-  // Helper to format ISO strings to local datetime-local format YYYY-MM-DDTHH:MM
-  const toLocalISOString = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - offset * 60 * 1000);
-    return localDate.toISOString().slice(0, 16);
-  };
+  // toLocalISOString removed in favor of module-level timezone-locked toBrasiliaISOString helper
 
   const fetchOperationalData = async () => {
     setLoading(true);
@@ -274,8 +307,8 @@ export default function OperationalPage() {
   const handleStartEdit = (req) => {
     setEditingId(req.id);
     setEditFields({
-      opPeriodStart: toLocalISOString(req.opPeriodStart || req.period?.start),
-      opPeriodEnd: toLocalISOString(req.opPeriodEnd || req.period?.end),
+      opPeriodStart: toBrasiliaISOString(req.opPeriodStart || req.period?.start),
+      opPeriodEnd: toBrasiliaISOString(req.opPeriodEnd || req.period?.end),
       opServedBy: req.opServedBy || "",
       opBillingStatus: req.opBillingStatus || "Não",
       opInvoiceId: req.opInvoiceId || "",
@@ -296,7 +329,7 @@ export default function OperationalPage() {
     try {
       // Validate dates
       if (editFields.opPeriodStart && editFields.opPeriodEnd) {
-        if (new Date(editFields.opPeriodStart) >= new Date(editFields.opPeriodEnd)) {
+        if (parseBrasiliaDate(editFields.opPeriodStart) >= parseBrasiliaDate(editFields.opPeriodEnd)) {
           throw new Error("A data de término do atendimento deve ser posterior à data de início.");
         }
       }
@@ -306,8 +339,8 @@ export default function OperationalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          opPeriodStart: editFields.opPeriodStart ? new Date(editFields.opPeriodStart).toISOString() : "",
-          opPeriodEnd: editFields.opPeriodEnd ? new Date(editFields.opPeriodEnd).toISOString() : "",
+          opPeriodStart: editFields.opPeriodStart ? parseBrasiliaDate(editFields.opPeriodStart).toISOString() : "",
+          opPeriodEnd: editFields.opPeriodEnd ? parseBrasiliaDate(editFields.opPeriodEnd).toISOString() : "",
           opServedBy: editFields.opServedBy,
           opBillingStatus: editFields.opBillingStatus,
           opInvoiceId: editFields.opInvoiceId,
@@ -427,12 +460,9 @@ export default function OperationalPage() {
 
       const durationMin = Math.round((actEnd - actStart) / 60000);
 
-      // Shift Limits: 00:00 and 17:50 local time on the day of the flight
-      const shiftStartLimit = new Date(reqStart);
-      shiftStartLimit.setHours(0, 0, 0, 0);
-
-      const shiftEndLimit = new Date(reqEnd);
-      shiftEndLimit.setHours(17, 50, 0, 0);
+      // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
+      const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
+      const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
 
       // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
       let antMin = 0;
@@ -772,8 +802,8 @@ export default function OperationalPage() {
                       {/* Período Alteração */}
                       <td>
                         <div style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
-                          <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR")}</div>
-                          <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR")}</div>
+                          <div><strong>De:</strong> {formatToBrasiliaDateTime(req.period?.start)}</div>
+                          <div style={{ marginTop: "2px" }}><strong>Até:</strong> {formatToBrasiliaDateTime(req.period?.end)}</div>
                         </div>
                       </td>
 
@@ -806,8 +836,8 @@ export default function OperationalPage() {
                           <div style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
                             {req.opPeriodStart ? (
                               <>
-                                <div><strong>De:</strong> {new Date(req.opPeriodStart).toLocaleString("pt-BR")}</div>
-                                <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.opPeriodEnd).toLocaleString("pt-BR")}</div>
+                                <div><strong>De:</strong> {formatToBrasiliaDateTime(req.opPeriodStart)}</div>
+                                <div style={{ marginTop: "2px" }}><strong>Até:</strong> {formatToBrasiliaDateTime(req.opPeriodEnd)}</div>
                               </>
                             ) : (
                               <div style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Mesmo da Alteração</div>

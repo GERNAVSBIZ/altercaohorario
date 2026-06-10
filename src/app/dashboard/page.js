@@ -833,7 +833,7 @@ export default function DashboardPage() {
                         #{req.id.slice(-6).toUpperCase()}
                       </span>
                       <span style={{ fontSize: "11px", color: "var(--text-dark-muted)" }}>
-                        {new Date(req.createdAt).toLocaleDateString("pt-BR")}
+                        {new Date(req.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </span>
                     </div>
 
@@ -842,8 +842,8 @@ export default function DashboardPage() {
                       <div><strong>Aeronave:</strong> {req.aircraft?.typeQty}</div>
                       <div><strong>Período:</strong></div>
                       <div style={{ paddingLeft: "10px", fontSize: "12px", color: "var(--text-dark-muted)" }}>
-                        De {new Date(req.period?.start).toLocaleString("pt-BR")}<br />
-                        Até {new Date(req.period?.end).toLocaleString("pt-BR")}
+                        De {new Date(req.period?.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}<br />
+                        Até {new Date(req.period?.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </div>
                     </div>
 

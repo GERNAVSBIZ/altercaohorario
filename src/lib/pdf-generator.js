@@ -56,7 +56,7 @@ export async function generateRequestPdf(data) {
     color: darkTextColor,
   });
 
-  const formattedDate = new Date(data.createdAt || Date.now()).toLocaleString("pt-BR");
+  const formattedDate = new Date(data.createdAt || Date.now()).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   page.drawText(`Registrado em: ${formattedDate}`, {
     x: 55,
     y: 745,
@@ -173,8 +173,8 @@ export async function generateRequestPdf(data) {
 
   // 3. PERÍODO SOLICITADO
   drawSectionHeader("3. PERÍODO DA SOLICITAÇÃO");
-  const formattedStart = new Date(data.period.start).toLocaleString("pt-BR");
-  const formattedEnd = new Date(data.period.end).toLocaleString("pt-BR");
+  const formattedStart = new Date(data.period.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const formattedEnd = new Date(data.period.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   drawRow("Data/Hora Início:", formattedStart, "Data/Hora Fim:", formattedEnd);
 
   // 4. IDENTIFICAÇÃO DA AERONAVE E TRIPULAÇÃO
@@ -241,7 +241,7 @@ export async function generateRequestPdf(data) {
   });
 
   const ipText = `IP do Confirmador: ${data.confirmationIp || "N/A"}`;
-  const timestampText = `Data de Confirmação: ${data.confirmedAt ? new Date(data.confirmedAt).toLocaleString("pt-BR") : formattedDate}`;
+  const timestampText = `Data de Confirmação: ${data.confirmedAt ? new Date(data.confirmedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : formattedDate}`;
   
   page.drawText("Documento assinado digitalmente através de validação de e-mail de dupla confirmação.", {
     x: 50,
