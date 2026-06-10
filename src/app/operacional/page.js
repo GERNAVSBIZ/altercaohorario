@@ -17,7 +17,8 @@ import {
   User,
   Plane,
   Building2,
-  CalendarDays
+  CalendarDays,
+  Download
 } from "lucide-react";
 
 // Helper to construct a boundary Date strictly in Brasília time (UTC-3)
@@ -773,6 +774,7 @@ export default function OperationalPage() {
                   <th style={{ width: "130px" }}>ID Fatura</th>
                   <th style={{ width: "135px" }}>Envio NACA</th>
                   <th style={{ minWidth: "180px" }}>Observações</th>
+                  <th style={{ width: "90px" }}>PDF</th>
                   <th style={{ width: "100px" }}>Ações</th>
                 </tr>
               </thead>
@@ -945,6 +947,38 @@ export default function OperationalPage() {
                         ) : (
                           <span style={{ fontSize: "12px", color: req.opNotes ? "var(--text-dark)" : "var(--text-dark-muted)" }}>
                             {req.opNotes || <span style={{ fontStyle: "italic" }}>Sem observações</span>}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* PDF */}
+                      <td>
+                        {req.status === "confirmed" && req.approvalStatus === "authorized" ? (
+                          <a 
+                            href={`/api/requests/pdf?id=${req.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="admin-action-btn"
+                            style={{ 
+                              padding: "6px 10px", 
+                              fontSize: "11px", 
+                              gap: "4px", 
+                              backgroundColor: "rgba(239, 91, 37, 0.15)", 
+                              borderColor: "rgba(239, 91, 37, 0.4)", 
+                              color: "var(--text-dark)",
+                              textDecoration: "none",
+                              display: "inline-flex",
+                              alignItems: "center"
+                            }}
+                            title="Baixar PDF Oficial"
+                            download
+                          >
+                            <Download size={12} style={{ color: "var(--accent)" }} />
+                            <span>PDF</span>
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+                            {req.status !== "confirmed" ? "Rascunho" : "Pendente/Recusado"}
                           </span>
                         )}
                       </td>
