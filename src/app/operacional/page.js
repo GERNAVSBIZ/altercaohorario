@@ -814,7 +814,7 @@ export default function OperationalPage() {
                         {isEditing ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             <div>
-                              <span style={{ fontSize: "10px", color: "var(--text-dark-muted)", display: "block" }}>Início:</span>
+                              <span style={{ fontSize: "10px", color: "var(--text-dark-muted)", display: "block" }}>Início (LOCAL Brasília):</span>
                               <input 
                                 type="datetime-local"
                                 className="form-input"
@@ -824,7 +824,7 @@ export default function OperationalPage() {
                               />
                             </div>
                             <div>
-                              <span style={{ fontSize: "10px", color: "var(--text-dark-muted)", display: "block" }}>Fim:</span>
+                              <span style={{ fontSize: "10px", color: "var(--text-dark-muted)", display: "block" }}>Fim (LOCAL Brasília):</span>
                               <input 
                                 type="datetime-local"
                                 className="form-input"

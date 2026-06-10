@@ -23,6 +23,15 @@ import {
   Clock
 } from "lucide-react";
 
+// Helper to parse local datetime-local string (YYYY-MM-DDTHH:MM) strictly as Brasília time (UTC-3)
+const parseBrasiliaDate = (localISOString) => {
+  if (!localISOString) return null;
+  if (localISOString.includes("Z") || /[-+]\d{2}:\d{2}$/.test(localISOString)) {
+    return new Date(localISOString);
+  }
+  return new Date(localISOString + "-03:00");
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -254,7 +263,7 @@ export default function DashboardPage() {
       return;
     }
 
-    if (new Date(periodStart) >= new Date(periodEnd)) {
+    if (parseBrasiliaDate(periodStart) >= parseBrasiliaDate(periodEnd)) {
       setErrorMsg("A data/hora de término deve ser após a data/hora de início.");
       setOpenSections(prev => ({ ...prev, period: true }));
       setSubmitLoading(false);
@@ -314,8 +323,8 @@ export default function DashboardPage() {
       },
       serviceType,
       period: {
-        start: periodStart,
-        end: periodEnd
+        start: parseBrasiliaDate(periodStart).toISOString(),
+        end: parseBrasiliaDate(periodEnd).toISOString()
       },
       notes
     };
@@ -725,7 +734,7 @@ export default function DashboardPage() {
                 {openSections.period && (
                   <div className="accordion-content">
                     <div className="form-group">
-                      <label className="form-label">Data e Hora de Início</label>
+                      <label className="form-label">Data e Hora de Início (Horário Local de Brasília)</label>
                       <input 
                         type="datetime-local" 
                         className="form-input" 
@@ -736,7 +745,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Data e Hora de Fim</label>
+                      <label className="form-label">Data e Hora de Fim (Horário Local de Brasília)</label>
                       <input 
                         type="datetime-local" 
                         className="form-input" 
