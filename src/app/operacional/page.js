@@ -4,7 +4,58 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, getFirestore } from "firebase/firestore";
+import { initializeApp, getApps } from "firebase/app";
+
+// Configuração do Firebase do sistema ESCALA para consulta de turnos
+const escalaConfig = {
+  apiKey: "AIzaSyCjnlYviBn5MU5wQd6KsCsgfVey5Y1HqeI",
+  authDomain: "escala-operacional-novo.firebaseapp.com",
+  projectId: "escala-operacional-novo",
+  storageBucket: "escala-operacional-novo.firebasestorage.app",
+  messagingSenderId: "119979994919",
+  appId: "1:119979994919:web:ea7c32eefabdf5be048302"
+};
+
+let escalaDb = null;
+if (typeof window !== "undefined") {
+  try {
+    const apps = getApps();
+    const existingApp = apps.find(a => a.name === "escalaApp");
+    const escalaApp = existingApp || initializeApp(escalaConfig, "escalaApp");
+    escalaDb = getFirestore(escalaApp);
+  } catch (err) {
+    console.error("Erro ao inicializar Firebase do ESCALA:", err);
+  }
+}
+
+// Helper to match operator names between ESCALA and NAVMANAGER case-insensitively and accent-insensitively
+const findMatchingOperator = (escalaName, navmanagerOperators) => {
+  if (!escalaName || !navmanagerOperators || navmanagerOperators.length === 0) return null;
+  
+  const clean = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const escalaClean = clean(escalaName);
+  
+  // Try exact match
+  for (const op of navmanagerOperators) {
+    if (clean(op) === escalaClean) return op;
+  }
+  
+  // Try matching first name or parts
+  const escalaParts = escalaClean.split(/\s+/);
+  if (escalaParts.length > 0) {
+    const firstName = escalaParts[0];
+    for (const op of navmanagerOperators) {
+      const opClean = clean(op);
+      const opParts = opClean.split(/\s+/);
+      if (opParts.length > 0 && (opParts[0] === firstName || opClean.includes(firstName) || escalaClean.includes(opParts[0]))) {
+        return op;
+      }
+    }
+  }
+  
+  return null;
+};
 import { 
   History, 
   Search, 
@@ -305,10 +356,77 @@ export default function OperationalPage() {
     return () => unsubscribe();
   }, [router]);
 
+  const fetchAndFillOperator = async (localDateTimeStr) => {
+    if (!localDateTimeStr || !escalaDb) return;
+    const match = localDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    if (!match) return;
+
+    const year = parseInt(match[1]);
+    const month = parseInt(match[2]);
+    const day = parseInt(match[3]);
+    const hour = parseInt(match[4]);
+    const minute = parseInt(match[5]);
+
+    const baseDate = new Date(year, month - 1, day, hour, minute);
+    let targetShift = "C";
+    
+    // Shift assignment logic based on local start hour:
+    // A: 00:00 - 08:00
+    // B: 05:00 - 13:00
+    // C: 10:00 - 17:50
+    if (hour >= 0 && hour < 5) {
+      targetShift = "A";
+    } else if (hour >= 5 && hour < 10) {
+      targetShift = "B";
+    } else if (hour >= 10 && hour < 22) {
+      targetShift = "C";
+    } else {
+      // Hour is 22 or 23: Anticipation for Turno A of the next day
+      targetShift = "A";
+      baseDate.setDate(baseDate.getDate() + 1);
+    }
+
+    const targetYear = baseDate.getFullYear();
+    const targetMonth = baseDate.getMonth() + 1;
+    const targetDay = baseDate.getDate();
+
+    const monthNamesPt = [
+      "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
+      "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+    ];
+    const docId = `dniz_${targetYear}-${String(targetMonth).padStart(2, '0')}-${monthNamesPt[targetMonth - 1]}`;
+
+    try {
+      const docRef = doc(escalaDb, "artifacts/escala-operacional-novo/schedules", docId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const dateHeaders = data.dateHeaders || [];
+        const scheduleData = data.scheduleData || [];
+        
+        const dayIndex = dateHeaders.findIndex(d => parseInt(d) === targetDay);
+        if (dayIndex !== -1) {
+          const opEntry = scheduleData.find(op => op.shifts && op.shifts[dayIndex] === targetShift);
+          if (opEntry) {
+            const matchedOp = findMatchingOperator(opEntry.name, operators);
+            if (matchedOp) {
+              setEditFields(prev => ({ ...prev, opServedBy: matchedOp }));
+            } else {
+              setEditFields(prev => ({ ...prev, opServedBy: opEntry.name }));
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching shift operator from Escala:", err);
+    }
+  };
+
   const handleStartEdit = (req) => {
+    const startLocalStr = toBrasiliaISOString(req.opPeriodStart || req.period?.start);
     setEditingId(req.id);
     setEditFields({
-      opPeriodStart: toBrasiliaISOString(req.opPeriodStart || req.period?.start),
+      opPeriodStart: startLocalStr,
       opPeriodEnd: toBrasiliaISOString(req.opPeriodEnd || req.period?.end),
       opServedBy: req.opServedBy || "",
       opBillingStatus: req.opBillingStatus || "Não",
@@ -316,6 +434,10 @@ export default function OperationalPage() {
       opNacaStatus: req.opNacaStatus || "Pendente",
       opNotes: req.opNotes || ""
     });
+
+    if (!req.opServedBy && startLocalStr) {
+      fetchAndFillOperator(startLocalStr);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -820,7 +942,11 @@ export default function OperationalPage() {
                                 className="form-input"
                                 style={{ padding: "6px", fontSize: "11px", height: "auto" }}
                                 value={editFields.opPeriodStart}
-                                onChange={e => setEditFields({ ...editFields, opPeriodStart: e.target.value })}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setEditFields(prev => ({ ...prev, opPeriodStart: val }));
+                                  fetchAndFillOperator(val);
+                                }}
                               />
                             </div>
                             <div>
