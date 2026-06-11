@@ -74,13 +74,26 @@ export async function generateRequestPdf(data) {
     color: orangeColor,
   });
 
+  const isPending = data.status === "pending_confirmation";
   const isRejected = data.approvalStatus === "not_authorized";
-  page.drawText(`Status: ${isRejected ? "REPROVADO" : "CONFIRMADO"}`, {
+
+  let statusText = "CONFIRMADO";
+  let statusColor = rgb(46 / 255, 117 / 255, 89 / 255); // Green
+
+  if (isPending) {
+    statusText = "PENDENTE";
+    statusColor = orangeColor; // Orange
+  } else if (isRejected) {
+    statusText = "REPROVADO";
+    statusColor = rgb(200 / 255, 30 / 255, 30 / 255); // Red
+  }
+
+  page.drawText(`Status: ${statusText}`, {
     x: 420,
     y: 745,
     size: 10,
     font: helveticaBold,
-    color: isRejected ? rgb(200 / 255, 30 / 255, 30 / 255) : rgb(46 / 255, 117 / 255, 89 / 255),
+    color: statusColor,
   });
 
   y = 700;
@@ -241,9 +254,11 @@ export async function generateRequestPdf(data) {
   });
 
   const ipText = `IP do Confirmador: ${data.confirmationIp || "N/A"}`;
-  const timestampText = `Data de Confirmação: ${data.confirmedAt ? new Date(data.confirmedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : formattedDate}`;
+  const timestampText = `Data de Confirmação: ${data.confirmedAt ? new Date(data.confirmedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "N/A"}`;
   
-  page.drawText("Documento assinado digitalmente através de validação de e-mail de dupla confirmação.", {
+  page.drawText(data.status === "pending_confirmation" 
+    ? "Documento aguardando validação de e-mail de dupla confirmação."
+    : "Documento assinado digitalmente através de validação de e-mail de dupla confirmação.", {
     x: 50,
     y: y - 15,
     size: 8,
