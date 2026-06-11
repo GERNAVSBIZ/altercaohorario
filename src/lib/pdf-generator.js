@@ -266,7 +266,12 @@ export async function generateRequestPdf(data) {
     color: darkTextColor,
   });
 
-  page.drawText(`${ipText}   |   ${timestampText}`, {
+  let validationDetails = `${ipText}   |   ${timestampText}`;
+  if (data.status !== "pending_confirmation" && data.company?.email) {
+    validationDetails += `   |   E-mail de Contato: ${data.company.email}`;
+  }
+
+  page.drawText(validationDetails, {
     x: 50,
     y: y - 30,
     size: 8,
