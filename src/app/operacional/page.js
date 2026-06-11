@@ -56,6 +56,42 @@ const findMatchingOperator = (escalaName, navmanagerOperators) => {
   
   return null;
 };
+
+// Helper to determine billing status (Isento vs Sim) based on local start time and duration rules
+const calculateBillingStatus = (startLocalISO, endLocalISO) => {
+  if (!startLocalISO || !endLocalISO) return "Não";
+
+  const startMatch = startLocalISO.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  const endMatch = endLocalISO.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!startMatch || !endMatch) return "Não";
+
+  const startHour = parseInt(startMatch[4]);
+  const startMinute = parseInt(startMatch[5]);
+
+  const startYear = parseInt(startMatch[1]);
+  const startMonth = parseInt(startMatch[2]);
+  const startDay = parseInt(startMatch[3]);
+  const startDate = new Date(startYear, startMonth - 1, startDay, startHour, startMinute);
+
+  const endYear = parseInt(endMatch[1]);
+  const endMonth = parseInt(endMatch[2]);
+  const endDay = parseInt(endMatch[3]);
+  const endHour = parseInt(endMatch[4]);
+  const endMinute = parseInt(endMatch[5]);
+  const endDate = new Date(endYear, endMonth - 1, endDay, endHour, endMinute);
+
+  const durationMin = Math.round((endDate - startDate) / 60000);
+
+  // Isento se iniciar até às 18h00 local E durar no máximo 2 horas (120 minutos)
+  const startsUntil18 = (startHour < 18) || (startHour === 18 && startMinute === 0);
+  const durationOk = durationMin <= 120;
+
+  if (startsUntil18 && durationOk && durationMin >= 0) {
+    return "Isento";
+  } else {
+    return "Sim";
+  }
+};
 import { 
   History, 
   Search, 
@@ -424,12 +460,15 @@ export default function OperationalPage() {
 
   const handleStartEdit = (req) => {
     const startLocalStr = toBrasiliaISOString(req.opPeriodStart || req.period?.start);
+    const endLocalStr = toBrasiliaISOString(req.opPeriodEnd || req.period?.end);
+    const calculatedBilling = calculateBillingStatus(startLocalStr, endLocalStr);
+
     setEditingId(req.id);
     setEditFields({
       opPeriodStart: startLocalStr,
-      opPeriodEnd: toBrasiliaISOString(req.opPeriodEnd || req.period?.end),
+      opPeriodEnd: endLocalStr,
       opServedBy: req.opServedBy || "",
-      opBillingStatus: req.opBillingStatus || "Não",
+      opBillingStatus: req.opBillingStatus && req.opBillingStatus !== "Não" ? req.opBillingStatus : calculatedBilling,
       opInvoiceId: req.opInvoiceId || "",
       opNacaStatus: req.opNacaStatus || "Pendente",
       opNotes: req.opNotes || ""
@@ -942,7 +981,11 @@ export default function OperationalPage() {
                                 value={editFields.opPeriodStart}
                                 onChange={e => {
                                   const val = e.target.value;
-                                  setEditFields(prev => ({ ...prev, opPeriodStart: val }));
+                                  setEditFields(prev => {
+                                    const updated = { ...prev, opPeriodStart: val };
+                                    updated.opBillingStatus = calculateBillingStatus(val, updated.opPeriodEnd);
+                                    return updated;
+                                  });
                                   fetchAndFillOperator(val);
                                 }}
                               />
@@ -954,7 +997,14 @@ export default function OperationalPage() {
                                 className="form-input"
                                 style={{ padding: "6px", fontSize: "11px", height: "auto" }}
                                 value={editFields.opPeriodEnd}
-                                onChange={e => setEditFields({ ...editFields, opPeriodEnd: e.target.value })}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setEditFields(prev => {
+                                    const updated = { ...prev, opPeriodEnd: val };
+                                    updated.opBillingStatus = calculateBillingStatus(updated.opPeriodStart, val);
+                                    return updated;
+                                  });
+                                }}
                               />
                             </div>
                           </div>
