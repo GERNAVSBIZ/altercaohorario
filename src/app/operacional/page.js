@@ -844,7 +844,6 @@ export default function OperationalPage() {
                     <tr>
                       <th>Operador PNA/OEA</th>
                       <th style={{ textAlign: "center", width: "160px" }}>Qtd. Atendimentos</th>
-                      <th style={{ textAlign: "center", width: "220px" }}>Tempo Total Atendido</th>
                       <th style={{ textAlign: "center", width: "200px" }}>Total Antecipado</th>
                       <th style={{ textAlign: "center", width: "200px" }}>Total Prorrogado</th>
                     </tr>
@@ -854,7 +853,6 @@ export default function OperationalPage() {
                       <tr key={row.name}>
                         <td style={{ fontWeight: "bold", color: "white" }}>{row.name}</td>
                         <td style={{ textAlign: "center", fontWeight: "600" }}>{row.count}</td>
-                        <td style={{ textAlign: "center", color: "var(--accent)", fontWeight: "600" }}>{formatMinToHours(row.durationMin)}</td>
                         <td style={{ textAlign: "center", color: "#3b82f6", fontWeight: "600" }}>{formatMinToHours(row.antMin)}</td>
                         <td style={{ textAlign: "center", color: "#ef5b25", fontWeight: "600" }}>{formatMinToHours(row.prorMin)}</td>
                       </tr>
