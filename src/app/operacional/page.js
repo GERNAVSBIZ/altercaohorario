@@ -9,12 +9,12 @@ import { initializeApp, getApps } from "firebase/app";
 
 // Configuração do Firebase do sistema ESCALA para consulta de turnos
 const escalaConfig = {
-  apiKey: "AIzaSyCjnlYviBn5MU5wQd6KsCsgfVey5Y1HqeI",
-  authDomain: "escala-operacional-novo.firebaseapp.com",
-  projectId: "escala-operacional-novo",
-  storageBucket: "escala-operacional-novo.firebasestorage.app",
-  messagingSenderId: "119979994919",
-  appId: "1:119979994919:web:ea7c32eefabdf5be048302"
+  apiKey: "AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",
+  authDomain: "dashboard-escala.firebaseapp.com",
+  projectId: "dashboard-escala",
+  storageBucket: "dashboard-escala.appspot.com",
+  messagingSenderId: "451393122794",
+  appId: "1:451393122794:web:24f125f11ef3260b770293"
 };
 
 let escalaDb = null;
@@ -516,10 +516,10 @@ export default function OperationalPage() {
       "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
       "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
     ];
-    const docId = `dniz_${targetYear}-${String(targetMonth).padStart(2, '0')}-${monthNamesPt[targetMonth - 1]}`;
+    const docId = `${String(targetMonth).padStart(2, '0')}-${targetYear}-${monthNamesPt[targetMonth - 1]}`;
 
     try {
-      const docRef = doc(escalaDb, "artifacts/escala-operacional-novo/schedules", docId);
+      const docRef = doc(escalaDb, "artifacts/dashboard-escala/schedules", docId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
