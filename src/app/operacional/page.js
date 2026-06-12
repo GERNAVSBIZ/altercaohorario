@@ -124,55 +124,124 @@ const getBrasiliaBoundary = (dateObj, hour, minute) => {
 const renderAttendanceDetails = (req) => {
   const reqStart = new Date(req.period?.start);
   const reqEnd = new Date(req.period?.end);
-  
-  // Default actual times to requested times if not explicitly set
-  const actStart = new Date(req.opPeriodStart || req.period?.start);
-  const actEnd = new Date(req.opPeriodEnd || req.period?.end);
 
-  if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime()) || isNaN(actStart.getTime()) || isNaN(actEnd.getTime())) {
+  if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime())) {
     return <span style={{ color: "var(--text-dark-muted)" }}>-</span>;
   }
 
-  const durationMin = Math.round((actEnd - actStart) / 60000);
-  const durationHours = Math.floor(durationMin / 60);
-  const durationMinsLeft = durationMin % 60;
-
-  // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
-  const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
-  const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
-
-  // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
-  let antMin = 0;
-  if (shiftStartLimit && actStart < shiftStartLimit) {
-    const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
-    antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
+  // Get active list of attendances or build a fallback list from legacy fields
+  let attendances = [];
+  if (req.opAttendances && req.opAttendances.length > 0) {
+    attendances = req.opAttendances;
+  } else if (req.opPeriodStart) {
+    attendances = [{
+      start: req.opPeriodStart,
+      end: req.opPeriodEnd,
+      operator: req.opServedBy || "Pendente"
+    }];
   }
 
-  // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
-  let prorMin = 0;
-  if (shiftEndLimit && actEnd > shiftEndLimit) {
-    const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
-    prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
+  if (attendances.length === 0) {
+    return (
+      <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+        No horário regulamentar
+      </div>
+    );
+  }
+
+  // Calculate stats for each attendance interval
+  let totalDurationMin = 0;
+  let totalAntMin = 0;
+  let totalProrMin = 0;
+
+  const items = attendances.map((att, idx) => {
+    const actStart = new Date(att.start);
+    const actEnd = new Date(att.end);
+
+    if (isNaN(actStart.getTime()) || isNaN(actEnd.getTime())) {
+      return null;
+    }
+
+    const durationMin = Math.round((actEnd - actStart) / 60000);
+    totalDurationMin += durationMin;
+
+    // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
+    const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
+    const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
+
+    // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
+    let antMin = 0;
+    if (shiftStartLimit && actStart < shiftStartLimit) {
+      const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
+      antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
+    }
+    totalAntMin += antMin;
+
+    // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
+    let prorMin = 0;
+    if (shiftEndLimit && actEnd > shiftEndLimit) {
+      const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
+      prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
+    }
+    totalProrMin += prorMin;
+
+    const durHours = Math.floor(durationMin / 60);
+    const durMins = durationMin % 60;
+
+    return (
+      <div key={att.id || idx} style={{ 
+        marginBottom: idx < attendances.length - 1 ? "6px" : "0", 
+        borderBottom: idx < attendances.length - 1 ? "1px dashed rgba(255, 255, 255, 0.08)" : "none", 
+        paddingBottom: idx < attendances.length - 1 ? "6px" : "0" 
+      }}>
+        {attendances.length > 1 && (
+          <div style={{ fontWeight: "700", color: "var(--accent)", fontSize: "11px" }}>
+            {att.operator || "Pendente"}
+          </div>
+        )}
+        <div>
+          <strong>Duração:</strong> {durHours}h {durMins}m
+        </div>
+        {antMin > 0 && (
+          <div style={{ color: "#3b82f6", fontSize: "11.5px", marginTop: "1px", fontWeight: "600" }}>
+            • Antecipou {Math.floor(antMin / 60) > 0 ? `${Math.floor(antMin / 60)}h ` : ""}{antMin % 60}m
+          </div>
+        )}
+        {prorMin > 0 && (
+          <div style={{ color: "#ef5b25", fontSize: "11.5px", marginTop: "1px", fontWeight: "600" }}>
+            • Prorrogou {Math.floor(prorMin / 60) > 0 ? `${Math.floor(prorMin / 60)}h ` : ""}{prorMin % 60}m
+          </div>
+        )}
+      </div>
+    );
+  }).filter(Boolean);
+
+  if (items.length === 0) {
+    return <span style={{ color: "var(--text-dark-muted)" }}>-</span>;
   }
 
   return (
     <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
-      <div>
-        <strong>Duração:</strong> {durationHours}h {durationMinsLeft}m
-      </div>
-      {antMin > 0 && (
-        <div style={{ color: "#3b82f6", fontSize: "11.5px", marginTop: "2px", fontWeight: "600" }}>
-          • Antecipou {Math.floor(antMin / 60) > 0 ? `${Math.floor(antMin / 60)}h ` : ""}{antMin % 60}m
-        </div>
-      )}
-      {prorMin > 0 && (
-        <div style={{ color: "#ef5b25", fontSize: "11.5px", marginTop: "2px", fontWeight: "600" }}>
-          • Prorrogou {Math.floor(prorMin / 60) > 0 ? `${Math.floor(prorMin / 60)}h ` : ""}{prorMin % 60}m
-        </div>
-      )}
-      {antMin <= 0 && prorMin <= 0 && (
-        <div style={{ color: "var(--text-dark-muted)", fontSize: "11px", marginTop: "2px", fontStyle: "italic" }}>
-          No horário regulamentar
+      {items}
+      {attendances.length > 1 && (
+        <div style={{ 
+          marginTop: "6px", 
+          paddingTop: "6px", 
+          borderTop: "1.5px solid rgba(255, 255, 255, 0.15)", 
+          fontWeight: "800",
+          color: "white" 
+        }}>
+          <div>Total: {Math.floor(totalDurationMin / 60)}h {totalDurationMin % 60}m</div>
+          {totalAntMin > 0 && (
+            <div style={{ color: "#3b82f6", fontSize: "11px" }}>
+              Total Ant: {Math.floor(totalAntMin / 60)}h {totalAntMin % 60}m
+            </div>
+          )}
+          {totalProrMin > 0 && (
+            <div style={{ color: "#ef5b25", fontSize: "11px" }}>
+              Total Prorr: {Math.floor(totalProrMin / 60)}h {totalProrMin % 60}m
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -273,7 +342,8 @@ export default function OperationalPage() {
     opBillingStatus: "Não",
     opInvoiceId: "",
     opNacaStatus: "Pendente",
-    opNotes: ""
+    opNotes: "",
+    opAttendances: []
   });
 
   // toLocalISOString removed in favor of module-level timezone-locked toBrasiliaISOString helper
@@ -408,7 +478,7 @@ export default function OperationalPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const fetchAndFillOperator = async (localDateTimeStr) => {
+  const fetchAndFillOperatorForAttendance = async (attId, localDateTimeStr) => {
     if (!localDateTimeStr || !escalaDb) return;
     const match = localDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
     if (!match) return;
@@ -461,11 +531,11 @@ export default function OperationalPage() {
           const opEntry = scheduleData.find(op => op.shifts && op.shifts[dayIndex] === targetShift);
           if (opEntry) {
             const matchedOp = findMatchingOperator(opEntry.name, operators);
-            if (matchedOp) {
-              setEditFields(prev => ({ ...prev, opServedBy: matchedOp }));
-            } else {
-              setEditFields(prev => ({ ...prev, opServedBy: opEntry.name }));
-            }
+            const finalOp = matchedOp || opEntry.name;
+            setEditFields(prev => ({
+              ...prev,
+              opAttendances: (prev.opAttendances || []).map(a => a.id === attId ? { ...a, operator: finalOp } : a)
+            }));
           }
         }
       }
@@ -482,6 +552,23 @@ export default function OperationalPage() {
     const endLocalStr = toBrasiliaISOString(req.opPeriodEnd || req.period?.end);
     const calculatedBilling = calculateBillingStatus(startLocalStr, endLocalStr);
 
+    let initialAttendances = [];
+    if (req.opAttendances && req.opAttendances.length > 0) {
+      initialAttendances = req.opAttendances.map(att => ({
+        id: att.id || Math.random().toString(36).substring(2, 9),
+        start: toBrasiliaISOString(att.start),
+        end: toBrasiliaISOString(att.end),
+        operator: att.operator || ""
+      }));
+    } else {
+      initialAttendances = [{
+        id: Math.random().toString(36).substring(2, 9),
+        start: startLocalStr,
+        end: endLocalStr,
+        operator: req.opServedBy || ""
+      }];
+    }
+
     setEditingId(req.id);
     setEditFields({
       opPeriodStart: startLocalStr,
@@ -490,16 +577,97 @@ export default function OperationalPage() {
       opBillingStatus: isNew ? calculatedBilling : (req.opBillingStatus || "Não"),
       opInvoiceId: req.opInvoiceId || "",
       opNacaStatus: req.opNacaStatus || "Pendente",
-      opNotes: req.opNotes || ""
+      opNotes: req.opNotes || "",
+      opAttendances: initialAttendances
     });
 
     if (isNew && !req.opServedBy && startLocalStr) {
-      fetchAndFillOperator(startLocalStr);
+      fetchAndFillOperatorForAttendance(initialAttendances[0].id, startLocalStr);
     }
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
+  };
+
+  const handleAddAttendance = () => {
+    const currentList = editFields.opAttendances || [];
+    let defaultStart = "";
+    let defaultEnd = "";
+    
+    if (currentList.length > 0) {
+      defaultStart = currentList[currentList.length - 1].end;
+      defaultEnd = currentList[currentList.length - 1].end;
+    } else {
+      defaultStart = toBrasiliaISOString(new Date().toISOString());
+      defaultEnd = toBrasiliaISOString(new Date().toISOString());
+    }
+
+    const newAtt = {
+      id: Math.random().toString(36).substring(2, 9),
+      start: defaultStart,
+      end: defaultEnd,
+      operator: ""
+    };
+
+    setEditFields(prev => ({
+      ...prev,
+      opAttendances: [...(prev.opAttendances || []), newAtt]
+    }));
+
+    if (isNewRegistration && defaultStart) {
+      fetchAndFillOperatorForAttendance(newAtt.id, defaultStart);
+    }
+  };
+
+  const handleRemoveAttendance = (id) => {
+    setEditFields(prev => {
+      const updatedList = (prev.opAttendances || []).filter(a => a.id !== id);
+      const updated = {
+        ...prev,
+        opAttendances: updatedList
+      };
+
+      if (isNewRegistration) {
+        const starts = updatedList.map(a => a.start).filter(Boolean);
+        const ends = updatedList.map(a => a.end).filter(Boolean);
+        if (starts.length > 0 && ends.length > 0) {
+          const minStart = starts.reduce((a, b) => a < b ? a : b);
+          const maxEnd = ends.reduce((a, b) => a > b ? a : b);
+          updated.opBillingStatus = calculateBillingStatus(minStart, maxEnd);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateAttendance = (id, field, value) => {
+    setEditFields(prev => {
+      const updatedList = (prev.opAttendances || []).map(a => 
+        a.id === id ? { ...a, [field]: value } : a
+      );
+      
+      const updated = {
+        ...prev,
+        opAttendances: updatedList
+      };
+
+      if (field === "start" && isNewRegistration) {
+        fetchAndFillOperatorForAttendance(id, value);
+      }
+
+      if (isNewRegistration && (field === "start" || field === "end")) {
+        const starts = updatedList.map(a => a.start).filter(Boolean);
+        const ends = updatedList.map(a => a.end).filter(Boolean);
+        if (starts.length > 0 && ends.length > 0) {
+          const minStart = starts.reduce((a, b) => a < b ? a : b);
+          const maxEnd = ends.reduce((a, b) => a > b ? a : b);
+          updated.opBillingStatus = calculateBillingStatus(minStart, maxEnd);
+        }
+      }
+
+      return updated;
+    });
   };
 
   const handleSaveEdit = async (id) => {
@@ -508,25 +676,51 @@ export default function OperationalPage() {
     setLoading(true);
 
     try {
-      // Validate dates
-      if (editFields.opPeriodStart && editFields.opPeriodEnd) {
-        if (parseBrasiliaDate(editFields.opPeriodStart) >= parseBrasiliaDate(editFields.opPeriodEnd)) {
-          throw new Error("A data de término do atendimento deve ser posterior à data de início.");
+      const attendances = editFields.opAttendances || [];
+      if (attendances.length === 0) {
+        throw new Error("Pelo menos um período de atendimento deve ser registrado.");
+      }
+
+      for (let i = 0; i < attendances.length; i++) {
+        const att = attendances[i];
+        if (!att.start || !att.end) {
+          throw new Error(`O período ${i + 1} possui datas incompletas.`);
+        }
+        if (parseBrasiliaDate(att.start) >= parseBrasiliaDate(att.end)) {
+          throw new Error(`No período ${i + 1}, a data de término deve ser posterior à data de início.`);
+        }
+        if (!att.operator) {
+          throw new Error(`Selecione o operador no período ${i + 1}.`);
         }
       }
+
+      const starts = attendances.map(a => parseBrasiliaDate(a.start));
+      const ends = attendances.map(a => parseBrasiliaDate(a.end));
+      
+      const minStart = new Date(Math.min(...starts.map(d => d.getTime())));
+      const maxEnd = new Date(Math.max(...ends.map(d => d.getTime())));
+      
+      const uniqueOps = Array.from(new Set(attendances.map(a => a.operator).filter(Boolean)));
+      const aggregatedServedBy = uniqueOps.join(", ");
 
       const response = await fetch("/api/admin/requests/operational", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          opPeriodStart: editFields.opPeriodStart ? parseBrasiliaDate(editFields.opPeriodStart).toISOString() : "",
-          opPeriodEnd: editFields.opPeriodEnd ? parseBrasiliaDate(editFields.opPeriodEnd).toISOString() : "",
-          opServedBy: editFields.opServedBy,
+          opPeriodStart: minStart.toISOString(),
+          opPeriodEnd: maxEnd.toISOString(),
+          opServedBy: aggregatedServedBy,
           opBillingStatus: editFields.opBillingStatus,
           opInvoiceId: editFields.opInvoiceId,
           opNacaStatus: editFields.opNacaStatus,
-          opNotes: editFields.opNotes
+          opNotes: editFields.opNotes,
+          opAttendances: attendances.map(a => ({
+            id: a.id,
+            start: parseBrasiliaDate(a.start).toISOString(),
+            end: parseBrasiliaDate(a.end).toISOString(),
+            operator: a.operator
+          }))
         })
       });
 
@@ -571,7 +765,8 @@ export default function OperationalPage() {
       r.company?.name?.toLowerCase().includes(query) ||
       r.aircraft?.registration?.toLowerCase().includes(query) ||
       r.opServedBy?.toLowerCase().includes(query) ||
-      r.opInvoiceId?.toLowerCase().includes(query)
+      r.opInvoiceId?.toLowerCase().includes(query) ||
+      (r.opAttendances && r.opAttendances.some(att => att.operator?.toLowerCase().includes(query)))
     );
 
     // 2. Month match
@@ -584,7 +779,11 @@ export default function OperationalPage() {
     // 3. Operator match
     let matchesOperator = true;
     if (selectedOperator !== "Todos") {
-      matchesOperator = r.opServedBy === selectedOperator;
+      if (r.opAttendances && r.opAttendances.length > 0) {
+        matchesOperator = r.opAttendances.some(att => att.operator === selectedOperator);
+      } else {
+        matchesOperator = r.opServedBy === selectedOperator;
+      }
     }
 
     // 4. Year match
@@ -607,7 +806,11 @@ export default function OperationalPage() {
 
     let matchesOperator = true;
     if (selectedOperator !== "Todos") {
-      matchesOperator = r.opServedBy === selectedOperator;
+      if (r.opAttendances && r.opAttendances.length > 0) {
+        matchesOperator = r.opAttendances.some(att => att.operator === selectedOperator);
+      } else {
+        matchesOperator = r.opServedBy === selectedOperator;
+      }
     }
 
     let matchesYear = true;
@@ -623,46 +826,62 @@ export default function OperationalPage() {
     const report = {};
 
     reportRequestsList.forEach(req => {
-      const op = req.opServedBy;
-      if (!op) return; // Ignore if no operator is set yet
-
-      if (!report[op]) {
-        report[op] = { name: op, count: 0, durationMin: 0, antMin: 0, prorMin: 0 };
+      let attendances = [];
+      if (req.opAttendances && req.opAttendances.length > 0) {
+        attendances = req.opAttendances;
+      } else if (req.opPeriodStart && req.opServedBy) {
+        attendances = [{
+          start: req.opPeriodStart,
+          end: req.opPeriodEnd,
+          operator: req.opServedBy
+        }];
       }
 
-      const reqStart = new Date(req.period?.start);
-      const reqEnd = new Date(req.period?.end);
-      const actStart = new Date(req.opPeriodStart || req.period?.start);
-      const actEnd = new Date(req.opPeriodEnd || req.period?.end);
+      attendances.forEach(att => {
+        const op = att.operator;
+        if (!op) return;
+        
+        // If we filtered by a specific operator, restrict report metrics to only that operator
+        if (selectedOperator !== "Todos" && op !== selectedOperator) return;
 
-      if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime()) || isNaN(actStart.getTime()) || isNaN(actEnd.getTime())) {
-        return;
-      }
+        if (!report[op]) {
+          report[op] = { name: op, count: 0, durationMin: 0, antMin: 0, prorMin: 0 };
+        }
 
-      const durationMin = Math.round((actEnd - actStart) / 60000);
+        const reqStart = new Date(req.period?.start);
+        const reqEnd = new Date(req.period?.end);
+        const actStart = new Date(att.start);
+        const actEnd = new Date(att.end);
 
-      // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
-      const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
-      const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
+        if (isNaN(reqStart.getTime()) || isNaN(reqEnd.getTime()) || isNaN(actStart.getTime()) || isNaN(actEnd.getTime())) {
+          return;
+        }
 
-      // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
-      let antMin = 0;
-      if (actStart < shiftStartLimit) {
-        const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
-        antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
-      }
+        const durationMin = Math.round((actEnd - actStart) / 60000);
 
-      // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
-      let prorMin = 0;
-      if (actEnd > shiftEndLimit) {
-        const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
-        prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
-      }
+        // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
+        const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
+        const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
 
-      report[op].count += 1;
-      report[op].durationMin += durationMin;
-      report[op].antMin += antMin;
-      report[op].prorMin += prorMin;
+        // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
+        let antMin = 0;
+        if (actStart < shiftStartLimit) {
+          const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
+          antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
+        }
+
+        // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
+        let prorMin = 0;
+        if (actEnd > shiftEndLimit) {
+          const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
+          prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
+        }
+
+        report[op].count += 1;
+        report[op].durationMin += durationMin;
+        report[op].antMin += antMin;
+        report[op].prorMin += prorMin;
+      });
     });
 
     return Object.values(report).sort((a, b) => b.durationMin - a.durationMin);
@@ -992,52 +1211,95 @@ export default function OperationalPage() {
                       {/* Atendimento PNA/OEA */}
                       <td>
                         {isEditing ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <div>
-                              <span style={{ fontSize: "10px", color: "var(--text-dark-muted)", display: "block" }}>Início (LOCAL Brasília):</span>
-                              <input 
-                                type="datetime-local"
-                                className="form-input"
-                                style={{ padding: "6px", fontSize: "11px", height: "auto" }}
-                                value={editFields.opPeriodStart}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  setEditFields(prev => {
-                                    const updated = { ...prev, opPeriodStart: val };
-                                    if (isNewRegistration) {
-                                      updated.opBillingStatus = calculateBillingStatus(val, updated.opPeriodEnd);
-                                    }
-                                    return updated;
-                                  });
-                                  if (isNewRegistration) {
-                                    fetchAndFillOperator(val);
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <span style={{ fontSize: "10px", color: "var(--text-dark-muted)", display: "block" }}>Fim (LOCAL Brasília):</span>
-                              <input 
-                                type="datetime-local"
-                                className="form-input"
-                                style={{ padding: "6px", fontSize: "11px", height: "auto" }}
-                                value={editFields.opPeriodEnd}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  setEditFields(prev => {
-                                    const updated = { ...prev, opPeriodEnd: val };
-                                    if (isNewRegistration) {
-                                      updated.opBillingStatus = calculateBillingStatus(updated.opPeriodStart, val);
-                                    }
-                                    return updated;
-                                  });
-                                }}
-                              />
-                            </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px", minWidth: "255px" }}>
+                            {(editFields.opAttendances || []).map((att, attIdx) => (
+                              <div key={att.id} style={{
+                                background: "rgba(255, 255, 255, 0.02)",
+                                border: "1px solid var(--border-dark)",
+                                borderRadius: "4px",
+                                padding: "8px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "6px",
+                                position: "relative"
+                              }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <span style={{ fontSize: "10px", fontWeight: "bold", color: "var(--accent)" }}>PERÍODO {attIdx + 1}</span>
+                                  {(editFields.opAttendances || []).length > 1 && (
+                                    <button 
+                                      type="button" 
+                                      onClick={() => handleRemoveAttendance(att.id)}
+                                      style={{ background: "transparent", border: "none", color: "var(--error)", cursor: "pointer", padding: "0 2px" }}
+                                      title="Remover este período"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Início (LOCAL Brasília):</span>
+                                  <input 
+                                    type="datetime-local"
+                                    className="form-input"
+                                    style={{ padding: "4px", fontSize: "11px", height: "auto" }}
+                                    value={att.start}
+                                    onChange={e => handleUpdateAttendance(att.id, "start", e.target.value)}
+                                  />
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Fim (LOCAL Brasília):</span>
+                                  <input 
+                                    type="datetime-local"
+                                    className="form-input"
+                                    style={{ padding: "4px", fontSize: "11px", height: "auto" }}
+                                    value={att.end}
+                                    onChange={e => handleUpdateAttendance(att.id, "end", e.target.value)}
+                                  />
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Operador (PNA/OEA):</span>
+                                  <select 
+                                    className="form-input"
+                                    style={{ padding: "4px", fontSize: "11.5px", height: "30px" }}
+                                    value={att.operator}
+                                    onChange={e => handleUpdateAttendance(att.id, "operator", e.target.value)}
+                                  >
+                                    <option value="">Selecione...</option>
+                                    {operators.map((op, oIdx) => (
+                                      <option key={oIdx} value={op}>{op}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            ))}
+                            <button 
+                              type="button" 
+                              onClick={handleAddAttendance} 
+                              className="admin-action-btn"
+                              style={{ padding: "6px 10px", fontSize: "11px", height: "auto", alignSelf: "flex-start", gap: "4px" }}
+                            >
+                              <span>+ Adicionar Período</span>
+                            </button>
                           </div>
                         ) : (
-                          <div style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
-                            {req.opPeriodStart ? (
+                          <div style={{ fontSize: "12px" }}>
+                            {req.opAttendances && req.opAttendances.length > 0 ? (
+                              req.opAttendances.map((att, idx) => (
+                                <div key={att.id || idx} style={{ 
+                                  marginBottom: idx < req.opAttendances.length - 1 ? "4px" : "0", 
+                                  borderBottom: idx < req.opAttendances.length - 1 ? "1px dashed rgba(255, 255, 255, 0.05)" : "none", 
+                                  paddingBottom: idx < req.opAttendances.length - 1 ? "4px" : "0" 
+                                }}>
+                                  {req.opAttendances.length > 1 && (
+                                    <div style={{ fontSize: "10px", color: "var(--accent)", fontWeight: "bold" }}>
+                                      {att.operator}
+                                    </div>
+                                  )}
+                                  <div><strong>De:</strong> {formatToBrasiliaDateTime(att.start)}</div>
+                                  <div style={{ marginTop: "1px" }}><strong>Até:</strong> {formatToBrasiliaDateTime(att.end)}</div>
+                                </div>
+                              ))
+                            ) : req.opPeriodStart ? (
                               <>
                                 <div><strong>De:</strong> {formatToBrasiliaDateTime(req.opPeriodStart)}</div>
                                 <div style={{ marginTop: "2px" }}><strong>Até:</strong> {formatToBrasiliaDateTime(req.opPeriodEnd)}</div>
@@ -1057,19 +1319,17 @@ export default function OperationalPage() {
                       {/* Operador (PNA/OEA) */}
                       <td>
                         {isEditing ? (
-                          <select 
-                            className="form-input"
-                            style={{ padding: "8px", fontSize: "12.5px", height: "38px" }}
-                            value={editFields.opServedBy}
-                            onChange={e => setEditFields({ ...editFields, opServedBy: e.target.value })}
-                          >
-                            <option value="">Selecione...</option>
-                            {operators.map((op, idx) => (
-                              <option key={idx} value={op}>{op}</option>
-                            ))}
-                          </select>
+                          <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+                            Definido no período
+                          </span>
                         ) : (
-                          <span>{req.opServedBy || <span style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Pendente</span>}</span>
+                          <span>
+                            {req.opAttendances && req.opAttendances.length > 0 ? (
+                              Array.from(new Set(req.opAttendances.map(a => a.operator).filter(Boolean))).join(", ")
+                            ) : (
+                              req.opServedBy || <span style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Pendente</span>
+                            )}
+                          </span>
                         )}
                       </td>
 

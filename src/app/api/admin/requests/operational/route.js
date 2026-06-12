@@ -52,7 +52,8 @@ export async function POST(req) {
       opBillingStatus, 
       opInvoiceId, 
       opNacaStatus, 
-      opNotes 
+      opNotes,
+      opAttendances
     } = await req.json();
 
     if (!id) {
@@ -67,6 +68,7 @@ export async function POST(req) {
       opInvoiceId: opInvoiceId || "",
       opNacaStatus: opNacaStatus || "Pendente",
       opNotes: opNotes || "",
+      opAttendances: opAttendances || [],
       opUpdatedAt: new Date().toISOString()
     };
 
