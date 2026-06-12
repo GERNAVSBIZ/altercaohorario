@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [customNotes, setCustomNotes] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
   const [ccDecisionEmails, setCcDecisionEmails] = useState("");
+  const [operatorsList, setOperatorsList] = useState("");
   const [operationalEmails, setOperationalEmails] = useState("");
   const [operatorsEmails, setOperatorsEmails] = useState("");
 
