@@ -53,6 +53,7 @@ export async function POST(req) {
       pilot,
       serviceType,
       period,
+      intentions: data.intentions || null,
       notes: data.notes || "",
       createdAt: new Date().toISOString(),
     };

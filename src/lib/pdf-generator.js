@@ -190,6 +190,13 @@ export async function generateRequestPdf(data) {
   const formattedEnd = new Date(data.period.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   drawRow("Data/Hora Início:", formattedStart, "Data/Hora Fim:", formattedEnd);
 
+  const intentions = [];
+  if (data.intentions?.decolagem) intentions.push("DECOLAGEM");
+  if (data.intentions?.pouso) intentions.push("POUSO");
+  if (data.intentions?.alternativa) intentions.push("ALTERNATIVA");
+  const intentionsStr = intentions.length > 0 ? intentions.join(", ") : "-";
+  drawRow("Intenção de Voo:", intentionsStr);
+
   // 4. IDENTIFICAÇÃO DA AERONAVE E TRIPULAÇÃO
   drawSectionHeader("4. DADOS DO VOO E TRIPULAÇÃO");
   drawRow("Aeronave (Tipo/Qtd):", data.aircraft.typeQty, "Matrícula:", data.aircraft.registration);

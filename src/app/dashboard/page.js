@@ -75,6 +75,9 @@ export default function DashboardPage() {
 
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+  const [intentionDecolagem, setIntentionDecolagem] = useState(false);
+  const [intentionPouso, setIntentionPouso] = useState(false);
+  const [intentionAlternativa, setIntentionAlternativa] = useState(false);
   const [notes, setNotes] = useState("");
 
   // Load operator request history
@@ -256,6 +259,13 @@ export default function DashboardPage() {
       return;
     }
 
+    if (!intentionDecolagem && !intentionPouso && !intentionAlternativa) {
+      setErrorMsg("Por favor, selecione pelo menos uma Intenção de Voo (Decolagem, Pouso ou Alternativa).");
+      setOpenSections(prev => ({ ...prev, period: true }));
+      setSubmitLoading(false);
+      return;
+    }
+
     if (!periodStart || !periodEnd) {
       setErrorMsg("Por favor, preencha o período solicitado.");
       setOpenSections(prev => ({ ...prev, period: true }));
@@ -326,6 +336,11 @@ export default function DashboardPage() {
         start: parseBrasiliaDate(periodStart).toISOString(),
         end: parseBrasiliaDate(periodEnd).toISOString()
       },
+      intentions: {
+        decolagem: intentionDecolagem,
+        pouso: intentionPouso,
+        alternativa: intentionAlternativa
+      },
       notes
     };
 
@@ -363,16 +378,20 @@ export default function DashboardPage() {
           pilot: requestPayload.pilot,
           serviceType: requestPayload.serviceType,
           period: requestPayload.period,
+          intentions: requestPayload.intentions,
           notes: requestPayload.notes
         };
         localStorage.setItem("mock_requests", JSON.stringify([newMockReq, ...existingMock]));
       }
 
       setSuccessMsg("Solicitação pré-registrada! Verifique seu e-mail para confirmar a prorrogação.");
-      // Clear form notes and dates
+      // Clear form notes, dates and intentions
       setPeriodStart("");
       setPeriodEnd("");
       setNotes("");
+      setIntentionDecolagem(false);
+      setIntentionPouso(false);
+      setIntentionAlternativa(false);
       
       // Automatically redirect to the requests history tab to show the pending item
       setActiveTab("my_requests");
@@ -733,6 +752,41 @@ export default function DashboardPage() {
 
                 {openSections.period && (
                   <div className="accordion-content">
+                    <div className="form-group" style={{ marginBottom: "16px" }}>
+                      <label className="form-label" style={{ display: "block", marginBottom: "8px" }}>Intenção de Voo (Selecione todas que se aplicam)</label>
+                      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginTop: "6px" }}>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" }}>
+                          <input 
+                            type="checkbox" 
+                            style={{ width: "18px", height: "18px", accentColor: "var(--accent)" }}
+                            checked={intentionDecolagem}
+                            onChange={e => setIntentionDecolagem(e.target.checked)}
+                            disabled={submitLoading}
+                          />
+                          <span>Decolagem</span>
+                        </label>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" }}>
+                          <input 
+                            type="checkbox" 
+                            style={{ width: "18px", height: "18px", accentColor: "var(--accent)" }}
+                            checked={intentionPouso}
+                            onChange={e => setIntentionPouso(e.target.checked)}
+                            disabled={submitLoading}
+                          />
+                          <span>Pouso</span>
+                        </label>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" }}>
+                          <input 
+                            type="checkbox" 
+                            style={{ width: "18px", height: "18px", accentColor: "var(--accent)" }}
+                            checked={intentionAlternativa}
+                            onChange={e => setIntentionAlternativa(e.target.checked)}
+                            disabled={submitLoading}
+                          />
+                          <span>Alternativa</span>
+                        </label>
+                      </div>
+                    </div>
                     <div className="form-group">
                       <label className="form-label">Data e Hora de Início (Horário Local de Brasília)</label>
                       <input 
