@@ -89,7 +89,8 @@ const calculateBillingStatus = (startLocalISO, endLocalISO) => {
   if (startsUntil18 && durationOk && durationMin >= 0) {
     return "Isento";
   } else {
-    return "Sim";
+    // Retorna "Não" por padrão quando não é isento, pois o status "Sim" só é marcado manualmente
+    return "Não";
   }
 };
 import { 
@@ -263,6 +264,7 @@ export default function OperationalPage() {
 
   // Edit States
   const [editingId, setEditingId] = useState(null);
+  const [isNewRegistration, setIsNewRegistration] = useState(false);
   const [editFields, setEditFields] = useState({
     opPeriodStart: "",
     opPeriodEnd: "",
@@ -459,6 +461,9 @@ export default function OperationalPage() {
   };
 
   const handleStartEdit = (req) => {
+    const isNew = !req.opPeriodStart;
+    setIsNewRegistration(isNew);
+
     const startLocalStr = toBrasiliaISOString(req.opPeriodStart || req.period?.start);
     const endLocalStr = toBrasiliaISOString(req.opPeriodEnd || req.period?.end);
     const calculatedBilling = calculateBillingStatus(startLocalStr, endLocalStr);
@@ -468,13 +473,13 @@ export default function OperationalPage() {
       opPeriodStart: startLocalStr,
       opPeriodEnd: endLocalStr,
       opServedBy: req.opServedBy || "",
-      opBillingStatus: req.opBillingStatus && req.opBillingStatus !== "Não" ? req.opBillingStatus : calculatedBilling,
+      opBillingStatus: isNew ? calculatedBilling : (req.opBillingStatus || "Não"),
       opInvoiceId: req.opInvoiceId || "",
       opNacaStatus: req.opNacaStatus || "Pendente",
       opNotes: req.opNotes || ""
     });
 
-    if (!req.opServedBy && startLocalStr) {
+    if (isNew && !req.opServedBy && startLocalStr) {
       fetchAndFillOperator(startLocalStr);
     }
   };
@@ -983,10 +988,14 @@ export default function OperationalPage() {
                                   const val = e.target.value;
                                   setEditFields(prev => {
                                     const updated = { ...prev, opPeriodStart: val };
-                                    updated.opBillingStatus = calculateBillingStatus(val, updated.opPeriodEnd);
+                                    if (isNewRegistration) {
+                                      updated.opBillingStatus = calculateBillingStatus(val, updated.opPeriodEnd);
+                                    }
                                     return updated;
                                   });
-                                  fetchAndFillOperator(val);
+                                  if (isNewRegistration) {
+                                    fetchAndFillOperator(val);
+                                  }
                                 }}
                               />
                             </div>
@@ -1001,7 +1010,9 @@ export default function OperationalPage() {
                                   const val = e.target.value;
                                   setEditFields(prev => {
                                     const updated = { ...prev, opPeriodEnd: val };
-                                    updated.opBillingStatus = calculateBillingStatus(updated.opPeriodStart, val);
+                                    if (isNewRegistration) {
+                                      updated.opBillingStatus = calculateBillingStatus(updated.opPeriodStart, val);
+                                    }
                                     return updated;
                                   });
                                 }}
