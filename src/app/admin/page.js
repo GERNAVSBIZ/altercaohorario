@@ -46,8 +46,8 @@ export default function AdminPage() {
   const [customNotes, setCustomNotes] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
   const [ccDecisionEmails, setCcDecisionEmails] = useState("");
-  const [operatorsList, setOperatorsList] = useState("");
   const [operationalEmails, setOperationalEmails] = useState("");
+  const [operatorsEmails, setOperatorsEmails] = useState("");
 
   // Delinquents State
   const [delinquentAircrafts, setDelinquentAircrafts] = useState([]);
@@ -100,6 +100,7 @@ export default function AdminPage() {
       setCcDecisionEmails(s.ccDecisionEmails || "");
       setOperatorsList(s.operatorsList || "");
       setOperationalEmails(s.operationalEmails || "");
+      setOperatorsEmails(s.operatorsEmails || "");
       
       // 3. Fetch delinquents
       await fetchDelinquents();
@@ -210,7 +211,8 @@ export default function AdminPage() {
           adminEmails,
           ccDecisionEmails,
           operatorsList,
-          operationalEmails
+          operationalEmails,
+          operatorsEmails
         })
       });
 
@@ -868,6 +870,21 @@ export default function AdminPage() {
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
                   Endereços de e-mail autorizados a acessar EXCLUSIVAMENTE o Módulo Operacional. Estes usuários não poderão acessar a página administrativa de configurações.
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">E-mails dos Operadores PNA/OEA (Mapeamento de Notificações - um por linha)</label>
+                <textarea 
+                  className="form-input" 
+                  style={{ minHeight: "120px", resize: "vertical" }}
+                  placeholder="Tahan: tahan.sbiz@navbrasil.gov.br&#10;Wilkson: wilkson.carvalho@navbrasil.gov.br"
+                  value={operatorsEmails}
+                  onChange={e => setOperatorsEmails(e.target.value)}
+                  disabled={settingsLoading || loading}
+                />
+                <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                  Associe cada operador ao seu respectivo e-mail no formato <code>Nome: email</code> (um por linha). Ex: <code>Tahan: tahan.sbiz@navbrasil.gov.br</code>. Quando houver uma alteração de horário, o operador do respectivo turno receberá uma notificação por e-mail.
                 </span>
               </div>
 

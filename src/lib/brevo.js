@@ -430,3 +430,67 @@ export async function sendDelinquentRejectionEmail({ email, name, requestData })
     htmlContent,
   });
 }
+
+/**
+ * Sends a notification email to the specific shift operator (OEA) about the confirmed request.
+ */
+export async function sendOperatorNotificationEmail({ operatorEmail, operatorName, requestData, pdfBase64, subjectPrefix }) {
+  const idShort = requestData.id.slice(-6).toUpperCase();
+  const prefix = subjectPrefix || "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ";
+  const subject = `[AVISO AO OPERADOR DE TURNO] ${prefix} #${idShort} - ${requestData.company.name}`;
+  
+  const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; color: #333;">
+      <h2 style="color: #0b3c5d; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Aviso de Prorrogação de Horário</h2>
+      <p>Olá, <strong>${operatorName}</strong>,</p>
+      <p>Você foi identificado como o operador do turno correspondente a esta solicitação de prorrogação de horário que foi <strong>confirmada pelo cliente</strong>:</p>
+      
+      <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Resumo dos Dados</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; width: 140px; color: #555;">Empresa/Entidade:</td>
+          <td style="padding: 6px 0;">${requestData.company.name}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Aeronave:</td>
+          <td style="padding: 6px 0;">${requestData.aircraft.typeQty} (${requestData.aircraft.registration || '-'})</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Piloto:</td>
+          <td style="padding: 6px 0;">${requestData.pilot.name}</td>
+        </tr>
+        ${requestData.notes ? `
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555; vertical-align: top;">Observações:</td>
+          <td style="padding: 6px 0; font-style: italic;">${requestData.notes}</td>
+        </tr>` : ''}
+      </table>
+
+      <p style="margin-top: 20px;">O documento oficial PDF encontra-se <strong>anexado a este e-mail</strong>.</p>
+      
+      <div style="background-color: #f5f5f5; border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 13px;">
+        <strong>Informações do Registro:</strong><br/>
+        ID da Solicitação: <code style="background-color: #eaeaea; padding: 2px 4px; border-radius: 3px;">${requestData.id}</code><br/>
+        Confirmado pelo Usuário em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #777; text-align: center; margin: 0;">SBIZ - Sistema de Solicitação de Prorrogação de Horário<br/>NAV Brasil - DNIZ</p>
+    </div>
+  `;
+
+  return sendEmail({
+    to: [{ email: operatorEmail, name: operatorName }],
+    subject,
+    htmlContent,
+    attachmentName: `solicitacao_SBIZ_${idShort}_${requestData.company.name.replace(/\\s+/g, '_')}.pdf`,
+    pdfBase64,
+  });
+}

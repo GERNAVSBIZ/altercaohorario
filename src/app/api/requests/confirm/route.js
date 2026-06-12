@@ -272,6 +272,99 @@ export async function POST(req) {
         );
       }
 
+      // Notify the shift operator (OEA) if configured
+      try {
+        let operatorsEmails = "";
+        if (adminDb) {
+          const settingsSnap = await adminDb.collection("config").doc("settings").get();
+          if (settingsSnap.exists) {
+            const settings = settingsSnap.data();
+            operatorsEmails = settings.operatorsEmails || "";
+          }
+        } else {
+          // Sandbox fallback
+          operatorsEmails = "Tahan: tahan.teste@navbrasil.gov.br\nWilkson: wilkson.teste@navbrasil.gov.br";
+        }
+
+        if (operatorsEmails.trim()) {
+          // 1. Identify shift operator from scale
+          const { getOperatorFromScale } = await import("@/lib/escala-server");
+          const escalaOperatorName = await getOperatorFromScale(requestData.period.start);
+
+          if (escalaOperatorName) {
+            // 2. Parse mapping list into a dictionary
+            const dict = {};
+            operatorsEmails.split("\n").forEach(line => {
+              const idx = line.indexOf(":");
+              if (idx !== -1) {
+                const name = line.substring(0, idx).trim();
+                const email = line.substring(idx + 1).trim();
+                if (name && email) {
+                  dict[name.toLowerCase()] = email;
+                }
+              }
+            });
+
+            // 3. Find matching email for operator
+            const clean = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const targetClean = clean(escalaOperatorName);
+            let matchedEmail = dict[targetClean] || null;
+            let matchedName = escalaOperatorName;
+
+            if (!matchedEmail) {
+              const keys = Object.keys(dict);
+              for (const key of keys) {
+                const keyClean = clean(key);
+                if (keyClean === targetClean) {
+                  matchedEmail = dict[key];
+                  matchedName = key;
+                  break;
+                }
+              }
+            }
+
+            if (!matchedEmail) {
+              const targetParts = targetClean.split(/\s+/);
+              const keys = Object.keys(dict);
+              for (const key of keys) {
+                const keyClean = clean(key);
+                const keyParts = keyClean.split(/\s+/);
+                const hasOverlap = targetParts.some(p => keyParts.includes(p));
+                if (hasOverlap) {
+                  matchedEmail = dict[key];
+                  matchedName = key;
+                  break;
+                }
+              }
+            }
+
+            // 4. Send email if matched
+            if (matchedEmail) {
+              console.log(`[OEA Notif] Match found: Operator "${escalaOperatorName}" matches mapped operator "${matchedName}" with email "${matchedEmail}". Sending email...`);
+              const { sendOperatorNotificationEmail } = await import("@/lib/brevo");
+              const opEmailResult = await sendOperatorNotificationEmail({
+                operatorEmail: matchedEmail,
+                operatorName: matchedName,
+                requestData,
+                pdfBase64,
+                subjectPrefix,
+              });
+              if (opEmailResult.success) {
+                console.log(`[OEA Notif] Notification email sent successfully to ${matchedEmail}`);
+              } else {
+                console.error(`[OEA Notif] Failed to send email to ${matchedEmail}:`, opEmailResult.error);
+              }
+            } else {
+              console.warn(`[OEA Notif] Operator "${escalaOperatorName}" found on scale but no mapped email was found in settings.`);
+            }
+          } else {
+            console.warn("[OEA Notif] No operator identified from scale for the requested period start.");
+          }
+        }
+      } catch (opNotifErr) {
+        console.error("Error in OEA operator notification flow (non-blocking):", opNotifErr);
+      }
+
       return NextResponse.json({
         success: true,
         alreadyConfirmed: false,
