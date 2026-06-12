@@ -248,6 +248,7 @@ export default function OperationalPage() {
   // Auth states
   const [authLoading, setAuthLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Data States
   const [requests, setRequests] = useState([]);
@@ -315,6 +316,7 @@ export default function OperationalPage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuthLoading(false);
       setAuthorized(true);
+      setIsAdmin(true);
       fetchOperationalData();
       return;
     }
@@ -326,18 +328,22 @@ export default function OperationalPage() {
         const email = currentUser.email || "";
         const lowerEmail = email.toLowerCase();
         
-        let isUserAuthorized = lowerEmail === "wilkson.carvalho@navbrasil.gov.br";
+        let isUserAdmin = lowerEmail === "wilkson.carvalho@navbrasil.gov.br";
+        let isUserAuthorized = isUserAdmin;
 
         const isSandbox = !db;
         if (isSandbox) {
-          isUserAuthorized = 
+          isUserAdmin = 
             lowerEmail === "wilkson.carvalho@navbrasil.gov.br" ||
             lowerEmail === "gernavsbiz@gmail.com" ||
-            lowerEmail === "developer@sbiz.local" ||
+            lowerEmail === "developer@sbiz.local";
+          
+          isUserAuthorized = 
+            isUserAdmin ||
             lowerEmail === "operador@sbiz.local";
         }
         
-        if (!isUserAuthorized) {
+        if (!isUserAdmin) {
           // Check settings (admins and operators lists)
           try {
             const settingsRes = await fetch("/api/admin/settings");
@@ -356,7 +362,10 @@ export default function OperationalPage() {
                 .map(e => e.trim().toLowerCase())
                 .filter(e => e.length > 0);
 
-              if (allowedAdmins.includes(lowerEmail) || allowedOperators.includes(lowerEmail)) {
+              if (allowedAdmins.includes(lowerEmail)) {
+                isUserAdmin = true;
+                isUserAuthorized = true;
+              } else if (allowedOperators.includes(lowerEmail)) {
                 isUserAuthorized = true;
               }
             }
@@ -365,13 +374,16 @@ export default function OperationalPage() {
           }
 
           // Check database profile role
-          if (!isUserAuthorized && db) {
+          if (!isUserAdmin && db) {
             try {
               const profileRef = doc(db, "profiles", currentUser.uid);
               const profileSnap = await getDoc(profileRef);
               if (profileSnap.exists()) {
                 const profileData = profileSnap.data();
-                if (profileData.role === "admin" || profileData.role === "operator" || profileData.role === "operational") {
+                if (profileData.role === "admin") {
+                  isUserAdmin = true;
+                  isUserAuthorized = true;
+                } else if (profileData.role === "operator" || profileData.role === "operational") {
                   isUserAuthorized = true;
                 }
               }
@@ -383,9 +395,11 @@ export default function OperationalPage() {
 
         if (isUserAuthorized) {
           setAuthorized(true);
+          setIsAdmin(isUserAdmin);
           fetchOperationalData();
         } else {
           setAuthorized(false);
+          setIsAdmin(false);
         }
       }
       setAuthLoading(false);
@@ -698,10 +712,12 @@ export default function OperationalPage() {
           }}>OPERACIONAL</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={() => router.push("/admin")} className="logout-btn" style={{ color: "white" }}>
-            <ShieldCheck size={15} />
-            <span>Administração</span>
-          </button>
+          {isAdmin && (
+            <button onClick={() => router.push("/admin")} className="logout-btn" style={{ color: "white" }}>
+              <ShieldCheck size={15} />
+              <span>Administração</span>
+            </button>
+          )}
           <button onClick={handleLogout} className="logout-btn">
             Sair
           </button>
