@@ -371,6 +371,7 @@ export default function AdminPage() {
   const totalCount = requests.length;
   const confirmedCount = requests.filter(r => r.status === "confirmed").length;
   const pendingCount = requests.filter(r => r.status === "pending_confirmation").length;
+  const authorizedCount = requests.filter(r => r.approvalStatus === "authorized").length;
 
   // Filter requests
   const filteredRequests = requests.filter(r => {
@@ -554,6 +555,10 @@ export default function AdminPage() {
               <div className="metric-card pending">
                 <div className="metric-value">{pendingCount}</div>
                 <div className="metric-label">Aguardando Confirmar</div>
+              </div>
+              <div className="metric-card authorized">
+                <div className="metric-value">{authorizedCount}</div>
+                <div className="metric-label">Autorizados</div>
               </div>
             </div>
 

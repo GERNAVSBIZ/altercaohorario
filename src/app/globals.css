@@ -486,7 +486,7 @@ a:hover {
 /* Administrative Dashboard Elements */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -526,6 +526,10 @@ a:hover {
 
 .metric-card.pending .metric-value {
   color: var(--warning);
+}
+
+.metric-card.authorized .metric-value {
+  color: #3b82f6;
 }
 
 .metric-label {
