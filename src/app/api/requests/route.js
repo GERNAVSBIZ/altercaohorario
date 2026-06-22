@@ -27,7 +27,7 @@ export async function POST(req) {
     }
 
     // 2. Form Validation
-    const { company, aircraft, requestor, pilot, serviceType, period } = data;
+    const { id, createdAt, company, aircraft, requestor, pilot, serviceType, period } = data;
     if (!company?.email || !requestor?.name || !period?.start || !period?.end) {
       return NextResponse.json(
         { error: "Dados incompletos fornecidos no formulário." },
@@ -36,10 +36,31 @@ export async function POST(req) {
     }
 
     // 3. Generate Request ID and Security Confirmation Token
-    const requestId = adminDb 
+    const requestId = id || (adminDb 
       ? adminDb.collection("requests").doc().id 
-      : `req_${crypto.randomBytes(8).toString("hex")}`;
+      : `req_${crypto.randomBytes(8).toString("hex")}`);
     const token = crypto.randomBytes(24).toString("hex");
+
+    if (id && adminDb) {
+      try {
+        const existingDoc = await adminDb.collection("requests").doc(id).get();
+        if (existingDoc.exists) {
+          const existingData = existingDoc.data();
+          if (existingData.userId !== userId) {
+            return NextResponse.json(
+              { error: "Você não tem permissão para editar esta solicitação." },
+              { status: 403 }
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error verifying request ownership:", err);
+        return NextResponse.json(
+          { error: "Erro ao validar propriedade da solicitação: " + err.message },
+          { status: 500 }
+        );
+      }
+    }
 
     const requestData = {
       id: requestId,
@@ -55,14 +76,15 @@ export async function POST(req) {
       period,
       intentions: data.intentions || null,
       notes: data.notes || "",
-      createdAt: new Date().toISOString(),
+      createdAt: createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // 4. Persist request in Firestore
     if (adminDb) {
       await adminDb.collection("requests").doc(requestId).set(requestData);
     } else {
-      console.log(`[SANDBOX] Solicitação #${requestId} pré-registrada.`);
+      console.log(`[SANDBOX] Solicitação #${requestId} pré-registrada / editada.`);
       global.lastMockRequest = requestData;
     }
 

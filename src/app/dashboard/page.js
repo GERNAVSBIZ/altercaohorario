@@ -23,6 +23,16 @@ import {
   Clock
 } from "lucide-react";
 
+// Helper to format ISO strings to Brasília local datetime-local format YYYY-MM-DDTHH:MM
+const toBrasiliaISOString = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  const brOffsetMs = -3 * 60 * 60 * 1000;
+  const brDate = new Date(date.getTime() + brOffsetMs);
+  return brDate.toISOString().slice(0, 16);
+};
+
 // Helper to parse local datetime-local string (YYYY-MM-DDTHH:MM) strictly as Brasília time (UTC-3)
 const parseBrasiliaDate = (localISOString) => {
   if (!localISOString) return null;
@@ -45,6 +55,8 @@ export default function DashboardPage() {
   const [userRequests, setUserRequests] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState("");
+  const [editingRequestId, setEditingRequestId] = useState(null);
+  const [editingRequestCreatedAt, setEditingRequestCreatedAt] = useState(null);
 
   // Accordion active sections state
   const [openSections, setOpenSections] = useState({
@@ -218,6 +230,65 @@ export default function DashboardPage() {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
+  const handleStartEditRequest = (req) => {
+    setEditingRequestId(req.id);
+    setEditingRequestCreatedAt(req.createdAt || new Date().toISOString());
+
+    // Populate all form fields
+    setCompanyName(req.company?.name || "");
+    setCompanyTaxId(req.company?.taxId || "");
+    setCompanyEmail(req.company?.email || "");
+    setCompanyPhone(req.company?.phone || "");
+    setCompanyAddress(req.company?.address || "");
+
+    setAircraftOperator(req.aircraft?.operator || "");
+    setAircraftRegistration(req.aircraft?.registration || "");
+    setRequestorName(req.requestor?.name || "");
+    setRequestorRole(req.requestor?.role || "");
+    setRequestorBillingEmail(req.requestor?.billingEmail || "");
+    setServiceType(req.serviceType || "");
+
+    setPilotName(req.pilot?.name || "");
+    setPilotAnac(req.pilot?.anacCode || "");
+    setAircraftTypeQty(req.aircraft?.typeQty || "");
+
+    setPeriodStart(toBrasiliaISOString(req.period?.start));
+    setPeriodEnd(toBrasiliaISOString(req.period?.end));
+    
+    setIntentionDecolagem(!!req.intentions?.decolagem);
+    setIntentionPouso(!!req.intentions?.pouso);
+    setIntentionAlternativa(!!req.intentions?.alternativa);
+    
+    setNotes(req.notes || "");
+
+    // Expand all accordion sections to ensure they are visible
+    setOpenSections({
+      company: true,
+      operator: true,
+      flight: true,
+      period: true
+    });
+
+    // Change tab to form
+    setActiveTab("new_request");
+    
+    // Scroll to form top
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEditRequest = () => {
+    setEditingRequestId(null);
+    setEditingRequestCreatedAt(null);
+    
+    // Clear form notes, dates and intentions
+    setPeriodStart("");
+    setPeriodEnd("");
+    setNotes("");
+    setIntentionDecolagem(false);
+    setIntentionPouso(false);
+    setIntentionAlternativa(false);
+  };
+
   const handleLogout = async () => {
     if (user?.isMock || !auth) {
       router.push("/login");
@@ -308,6 +379,8 @@ export default function DashboardPage() {
 
     // Prepare API request payload
     const requestPayload = {
+      id: editingRequestId,
+      createdAt: editingRequestCreatedAt,
       userId: user ? user.uid : "mock-user",
       isMock: user?.isMock || false,
       company: {
@@ -364,27 +437,50 @@ export default function DashboardPage() {
         throw new Error(responseData.error || "Erro ao registrar solicitação");
       }
 
-      // If in sandbox mode, save to localStorage to persist user history
+      // If in sandbox mode, save/update in localStorage to persist user history
       if (user?.isMock || responseData.mock) {
         const existingMock = JSON.parse(localStorage.getItem("mock_requests") || "[]");
-        const newMockReq = {
-          id: responseData.requestId || `req_${Math.random().toString(36).substr(2, 9)}`,
-          status: "pending_confirmation",
-          approvalStatus: "waiting_confirmation",
-          createdAt: new Date().toISOString(),
-          company: requestPayload.company,
-          aircraft: requestPayload.aircraft,
-          requestor: requestPayload.requestor,
-          pilot: requestPayload.pilot,
-          serviceType: requestPayload.serviceType,
-          period: requestPayload.period,
-          intentions: requestPayload.intentions,
-          notes: requestPayload.notes
-        };
-        localStorage.setItem("mock_requests", JSON.stringify([newMockReq, ...existingMock]));
+        if (editingRequestId) {
+          const updatedMock = existingMock.map(m => m.id === editingRequestId ? {
+            ...m,
+            status: "pending_confirmation",
+            approvalStatus: "waiting_confirmation",
+            company: requestPayload.company,
+            aircraft: requestPayload.aircraft,
+            requestor: requestPayload.requestor,
+            pilot: requestPayload.pilot,
+            serviceType: requestPayload.serviceType,
+            period: requestPayload.period,
+            intentions: requestPayload.intentions,
+            notes: requestPayload.notes,
+            updatedAt: new Date().toISOString()
+          } : m);
+          localStorage.setItem("mock_requests", JSON.stringify(updatedMock));
+        } else {
+          const newMockReq = {
+            id: responseData.requestId || `req_${Math.random().toString(36).substr(2, 9)}`,
+            status: "pending_confirmation",
+            approvalStatus: "waiting_confirmation",
+            createdAt: new Date().toISOString(),
+            company: requestPayload.company,
+            aircraft: requestPayload.aircraft,
+            requestor: requestPayload.requestor,
+            pilot: requestPayload.pilot,
+            serviceType: requestPayload.serviceType,
+            period: requestPayload.period,
+            intentions: requestPayload.intentions,
+            notes: requestPayload.notes
+          };
+          localStorage.setItem("mock_requests", JSON.stringify([newMockReq, ...existingMock]));
+        }
       }
 
-      setSuccessMsg("Solicitação pré-registrada! Verifique seu e-mail para confirmar a prorrogação.");
+      if (editingRequestId) {
+        setSuccessMsg("Solicitação atualizada com sucesso! Um novo e-mail de dupla confirmação foi enviado para validar suas alterações.");
+      } else {
+        setSuccessMsg("Solicitação pré-registrada! Verifique seu e-mail para confirmar a prorrogação.");
+      }
+
       // Clear form notes, dates and intentions
       setPeriodStart("");
       setPeriodEnd("");
@@ -392,10 +488,15 @@ export default function DashboardPage() {
       setIntentionDecolagem(false);
       setIntentionPouso(false);
       setIntentionAlternativa(false);
+      setEditingRequestId(null);
+      setEditingRequestCreatedAt(null);
       
       // Automatically redirect to the requests history tab to show the pending item
       setActiveTab("my_requests");
       
+      // Refresh requests history list
+      fetchUserRequests();
+
       // Scroll to top to see confirmation message
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
@@ -510,6 +611,25 @@ export default function DashboardPage() {
 
           {activeTab === "new_request" ? (
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              
+              {editingRequestId && (
+                <div className="notification notification-info" style={{ marginBottom: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Clock size={16} />
+                    <span>
+                      Você está editando a solicitação <strong>#{editingRequestId.slice(-6).toUpperCase()}</strong>. O envio revalidará as informações e exigirá nova dupla confirmação.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditRequest}
+                    className="admin-action-btn"
+                    style={{ padding: "4px 8px", fontSize: "11px", borderColor: "rgba(255,255,255,0.2)", color: "white" }}
+                  >
+                    Cancelar Edição
+                  </button>
+                </div>
+              )}
               
               {/* SECTION 1: DADOS DA EMPRESA */}
               <div className="accordion">
@@ -835,7 +955,7 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <Send size={18} />
-                    Enviar Pré-Solicitação
+                    {editingRequestId ? "Salvar Alterações e Revalidar" : "Enviar Pré-Solicitação"}
                   </>
                 )}
               </button>
@@ -957,6 +1077,33 @@ export default function DashboardPage() {
                         Verifique seu e-mail para confirmar a solicitação!
                       </div>
                     )}
+
+                    <div style={{ 
+                      display: "flex", 
+                      justifyContent: "flex-end", 
+                      gap: "8px", 
+                      borderTop: "1px dashed var(--border-dark)", 
+                      paddingTop: "10px",
+                      marginTop: "4px"
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditRequest(req)}
+                        className="admin-action-btn"
+                        style={{ 
+                          padding: "6px 12px", 
+                          fontSize: "12px", 
+                          display: "inline-flex", 
+                          alignItems: "center", 
+                          gap: "4px",
+                          borderColor: "var(--accent)",
+                          color: "white" 
+                        }}
+                      >
+                        <RefreshCw size={12} />
+                        Solicitar Alteração / Editar
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
