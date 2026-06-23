@@ -287,11 +287,11 @@ export async function POST(req) {
         }
 
         if (operatorsEmails.trim()) {
-          // 1. Identify shift operator from scale
-          const { getOperatorFromScale } = await import("@/lib/escala-server");
-          const escalaOperatorName = await getOperatorFromScale(requestData.period.start);
+          // 1. Identify shift operators from scale
+          const { getOperatorsFromScale } = await import("@/lib/escala-server");
+          const escalaOperators = await getOperatorsFromScale(requestData.period.start);
 
-          if (escalaOperatorName) {
+          if (escalaOperators && escalaOperators.length > 0) {
             // 2. Parse mapping list into a dictionary
             const dict = {};
             operatorsEmails.split("\n").forEach(line => {
@@ -305,60 +305,62 @@ export async function POST(req) {
               }
             });
 
-            // 3. Find matching email for operator
-            const clean = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            const targetClean = clean(escalaOperatorName);
-            let matchedEmail = dict[targetClean] || null;
-            let matchedName = escalaOperatorName;
+            // 3. Find and notify each operator
+            for (const escalaOperatorName of escalaOperators) {
+              const clean = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              const targetClean = clean(escalaOperatorName);
+              let matchedEmail = dict[targetClean] || null;
+              let matchedName = escalaOperatorName;
 
-            if (!matchedEmail) {
-              const keys = Object.keys(dict);
-              for (const key of keys) {
-                const keyClean = clean(key);
-                if (keyClean === targetClean) {
-                  matchedEmail = dict[key];
-                  matchedName = key;
-                  break;
+              if (!matchedEmail) {
+                const keys = Object.keys(dict);
+                for (const key of keys) {
+                  const keyClean = clean(key);
+                  if (keyClean === targetClean) {
+                    matchedEmail = dict[key];
+                    matchedName = key;
+                    break;
+                  }
                 }
               }
-            }
 
-            if (!matchedEmail) {
-              const targetParts = targetClean.split(/\s+/);
-              const keys = Object.keys(dict);
-              for (const key of keys) {
-                const keyClean = clean(key);
-                const keyParts = keyClean.split(/\s+/);
-                const hasOverlap = targetParts.some(p => keyParts.includes(p));
-                if (hasOverlap) {
-                  matchedEmail = dict[key];
-                  matchedName = key;
-                  break;
+              if (!matchedEmail) {
+                const targetParts = targetClean.split(/\s+/);
+                const keys = Object.keys(dict);
+                for (const key of keys) {
+                  const keyClean = clean(key);
+                  const keyParts = keyClean.split(/\s+/);
+                  const hasOverlap = targetParts.some(p => keyParts.includes(p));
+                  if (hasOverlap) {
+                    matchedEmail = dict[key];
+                    matchedName = key;
+                    break;
+                  }
                 }
               }
-            }
 
-            // 4. Send email if matched
-            if (matchedEmail) {
-              console.log(`[OEA Notif] Match found: Operator "${escalaOperatorName}" matches mapped operator "${matchedName}" with email "${matchedEmail}". Sending email...`);
-              const { sendOperatorNotificationEmail } = await import("@/lib/brevo");
-              const opEmailResult = await sendOperatorNotificationEmail({
-                operatorEmail: matchedEmail,
-                operatorName: matchedName,
-                requestData,
-                pdfBase64,
-                subjectPrefix,
-              });
-              if (opEmailResult.success) {
-                console.log(`[OEA Notif] Notification email sent successfully to ${matchedEmail}`);
+              // 4. Send email if matched
+              if (matchedEmail) {
+                console.log(`[OEA Notif] Match found: Operator "${escalaOperatorName}" matches mapped operator "${matchedName}" with email "${matchedEmail}". Sending email...`);
+                const { sendOperatorNotificationEmail } = await import("@/lib/brevo");
+                const opEmailResult = await sendOperatorNotificationEmail({
+                  operatorEmail: matchedEmail,
+                  operatorName: matchedName,
+                  requestData,
+                  pdfBase64,
+                  subjectPrefix,
+                });
+                if (opEmailResult.success) {
+                  console.log(`[OEA Notif] Notification email sent successfully to ${matchedEmail}`);
+                } else {
+                  console.error(`[OEA Notif] Failed to send email to ${matchedEmail}:`, opEmailResult.error);
+                }
               } else {
-                console.error(`[OEA Notif] Failed to send email to ${matchedEmail}:`, opEmailResult.error);
+                console.warn(`[OEA Notif] Operator "${escalaOperatorName}" found on scale but no mapped email was found in settings.`);
               }
-            } else {
-              console.warn(`[OEA Notif] Operator "${escalaOperatorName}" found on scale but no mapped email was found in settings.`);
             }
           } else {
-            console.warn("[OEA Notif] No operator identified from scale for the requested period start.");
+            console.warn("[OEA Notif] No operators identified from scale for the requested period start.");
           }
         }
       } catch (opNotifErr) {

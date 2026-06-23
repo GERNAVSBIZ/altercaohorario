@@ -47,11 +47,11 @@ function getBrasiliaParts(date) {
   };
 }
 
-export async function getOperatorFromScale(startIsoString) {
+export async function getOperatorsFromScale(startIsoString) {
   const db = getEscalaDb();
   if (!db) {
     console.error("Scale database not initialized.");
-    return null;
+    return [];
   }
 
   try {
@@ -95,10 +95,11 @@ export async function getOperatorFromScale(startIsoString) {
       
       const dayIndex = dateHeaders.findIndex(d => parseInt(d) === targetDay);
       if (dayIndex !== -1) {
-        const opEntry = scheduleData.find(op => op.shifts && op.shifts[dayIndex] === targetShift);
-        if (opEntry) {
-          console.log(`[Escala Server] Found operator on shift: ${opEntry.name}`);
-          return opEntry.name;
+        const matchingOps = scheduleData.filter(op => op.shifts && op.shifts[dayIndex] === targetShift);
+        if (matchingOps.length > 0) {
+          const names = matchingOps.map(op => op.name);
+          console.log(`[Escala Server] Found operators on shift: ${names.join(", ")}`);
+          return names;
         }
       }
       console.warn(`[Escala Server] Shift ${targetShift} not found in date headers for day ${targetDay}`);
@@ -106,7 +107,12 @@ export async function getOperatorFromScale(startIsoString) {
       console.warn(`[Escala Server] Scale document ${docId} does not exist.`);
     }
   } catch (error) {
-    console.error("Error in getOperatorFromScale server service:", error);
+    console.error("Error in getOperatorsFromScale server service:", error);
   }
-  return null;
+  return [];
+}
+
+export async function getOperatorFromScale(startIsoString) {
+  const operators = await getOperatorsFromScale(startIsoString);
+  return operators.length > 0 ? operators[0] : null;
 }
