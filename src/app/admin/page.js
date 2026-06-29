@@ -39,6 +39,11 @@ export default function AdminPage() {
   const [isMock, setIsMock] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Email logs state
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [emailLogsSearch, setEmailLogsSearch] = useState("");
+
   // Settings State
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [airportAdminEmail, setAirportAdminEmail] = useState("");
@@ -113,6 +118,84 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
+
+  const fetchEmailLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const res = await fetch("/api/admin/email-logs");
+      const data = await res.json();
+      if (res.ok) {
+        setEmailLogs(data.logs || []);
+      } else {
+        throw new Error(data.error || "Erro ao buscar logs de e-mail");
+      }
+    } catch (err) {
+      console.error("Fetch email logs error:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const handleResendEmail = async (logId) => {
+    if (!confirm("Tem certeza que deseja reenviar este e-mail?")) return;
+    setLogsLoading(true);
+    setSuccessMsg("");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/admin/email-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resend", logId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMsg(data.message || "E-mail reenviado com sucesso!");
+        await fetchEmailLogs();
+      } else {
+        throw new Error(data.error || "Erro ao reenviar e-mail");
+      }
+    } catch (err) {
+      console.error("Resend email error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const handleConfirmManual = async (requestId) => {
+    if (!confirm("Tem certeza que deseja confirmar esta solicitação manualmente? Isso ignorará a validação de token do cliente e enviará os e-mails operacionais.")) return;
+    setLoading(true);
+    setSuccessMsg("");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/admin/email-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "confirm-manual", requestId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMsg(data.message || "Solicitação confirmada manualmente!");
+        await fetchData();
+        if (activeTab === "logs") {
+          await fetchEmailLogs();
+        }
+      } else {
+        throw new Error(data.error || "Erro ao confirmar manualmente");
+      }
+    } catch (err) {
+      console.error("Confirm manual error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "logs") {
+      fetchEmailLogs();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!auth) {
@@ -540,6 +623,13 @@ export default function AdminPage() {
             <AlertTriangle size={16} />
             <span>Aeronaves Inadimplentes</span>
           </button>
+          <button 
+            className={`tab-btn ${activeTab === "logs" ? "active" : ""}`}
+            onClick={() => setActiveTab("logs")}
+          >
+            <Mail size={16} />
+            <span>Logs de Envio</span>
+          </button>
         </div>
 
         {/* Tab 1: Requests List */}
@@ -729,9 +819,21 @@ export default function AdminPage() {
                                 Finalizado
                               </span>
                             ) : (
-                              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.15)" }}>
-                                Sem Ações
-                              </span>
+                              req.status === "pending_confirmation" ? (
+                                <button 
+                                  onClick={() => handleConfirmManual(req.id)}
+                                  className="admin-action-btn btn-approve"
+                                  style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                                  title="Confirmar Solicitação Manualmente"
+                                >
+                                  <Check size={12} />
+                                  <span>Confirmar Manual</span>
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.15)" }}>
+                                  Sem Ações
+                                </span>
+                              )
                             )}
                             
                             <button
@@ -1050,6 +1152,181 @@ export default function AdminPage() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Email Logs */}
+        {activeTab === "logs" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "fadeIn 0.3s ease-out" }}>
+            <div className="card" style={{ padding: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <Mail style={{ color: "var(--accent)" }} size={20} />
+                  <h3 style={{ fontSize: "18px", color: "white", margin: 0 }}>Histórico de Envio de E-mails</h3>
+                </div>
+                <button 
+                  onClick={fetchEmailLogs}
+                  className="btn" 
+                  style={{ padding: "8px 16px", fontSize: "13px", gap: "6px" }}
+                  disabled={logsLoading}
+                >
+                  <RefreshCw size={14} className={logsLoading ? "spinner" : ""} />
+                  <span>Atualizar</span>
+                </button>
+              </div>
+
+              {/* Search Bar inside Logs */}
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{ position: "relative" }}>
+                  <Search style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--text-dark-muted)" }} size={16} />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    style={{ paddingLeft: "42px" }}
+                    placeholder="Filtrar logs por e-mail destinatário, assunto ou ID..."
+                    value={emailLogsSearch}
+                    onChange={e => setEmailLogsSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {logsLoading ? (
+                <div style={{ textAlign: "center", padding: "48px 0" }}>
+                  <span className="spinner" style={{ width: "32px", height: "32px" }}></span>
+                  <p style={{ marginTop: "12px", color: "var(--text-dark-muted)", fontSize: "14px" }}>Carregando logs de e-mail...</p>
+                </div>
+              ) : emailLogs.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "var(--text-dark-muted)", textAlign: "center", padding: "40px 0" }}>
+                  Nenhum log de e-mail registrado.
+                </p>
+              ) : (
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Data/Hora</th>
+                        <th>Tipo</th>
+                        <th>Destinatário</th>
+                        <th>Assunto</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emailLogs
+                        .filter(log => {
+                          const query = emailLogsSearch.toLowerCase();
+                          const recipientString = log.to ? log.to.map(t => typeof t === 'string' ? t : `${t.name || ""} <${t.email}>`).join(" ").toLowerCase() : "";
+                          const subjectString = (log.subject || "").toLowerCase();
+                          const idString = (log.requestId || "").toLowerCase();
+                          return recipientString.includes(query) || subjectString.includes(query) || idString.includes(query);
+                        })
+                        .map((log) => {
+                          const emailTypeLabels = {
+                            user_confirmation: "Confirmação do Cliente",
+                            admin_notification: "Notificação Admin (Confirmação)",
+                            admin_pre_notification: "Notificação Admin (Rascunho)",
+                            operator_decision: "Decisão do Operador",
+                            operator_notification: "Aviso de Escala OEA",
+                            delinquent_rejection: "Rejeição Automática",
+                            failure_notification: "Alerta de Falha de E-mail"
+                          };
+                          const badgeColors = {
+                            user_confirmation: "#2b8a3e",
+                            admin_notification: "#0b7285",
+                            admin_pre_notification: "#1098ad",
+                            operator_decision: "#d9480f",
+                            operator_notification: "#f59f00",
+                            delinquent_rejection: "#c92a2a",
+                            failure_notification: "#e8590c"
+                          };
+
+                          const formatRecipient = (toField) => {
+                            if (!toField) return "N/A";
+                            if (Array.isArray(toField)) {
+                              return toField.map(t => typeof t === 'string' ? t : `${t.name ? t.name + ' ' : ''}<${t.email}>`).join(", ");
+                            }
+                            return String(toField);
+                          };
+
+                          return (
+                            <tr key={log.id}>
+                              <td style={{ fontSize: "12px", color: "var(--text-dark-muted)", whiteSpace: "nowrap" }}>
+                                {new Date(log.sentAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                              </td>
+                              <td>
+                                <span style={{ 
+                                  fontSize: "11px", 
+                                  fontWeight: "bold", 
+                                  color: "white", 
+                                  backgroundColor: badgeColors[log.emailType] || "#495057",
+                                  padding: "3px 8px",
+                                  borderRadius: "12px",
+                                  whiteSpace: "nowrap"
+                                }}>
+                                  {emailTypeLabels[log.emailType] || log.emailType}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: "13px", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }} title={formatRecipient(log.to)}>
+                                {formatRecipient(log.to)}
+                              </td>
+                              <td style={{ fontSize: "13px" }} title={log.subject}>
+                                <div style={{ fontWeight: "500", color: "white" }}>{log.subject}</div>
+                                {log.requestId && (
+                                  <span style={{ fontSize: "10px", color: "var(--accent)" }}>
+                                    ID Solicitação: {log.requestId}
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {log.status === "sent" ? (
+                                  <span className="badge confirmed" style={{ whiteSpace: "nowrap" }}>Enviado</span>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                    <span className="badge rejected" style={{ whiteSpace: "nowrap" }}>Falhou</span>
+                                    {log.error && (
+                                      <span style={{ fontSize: "10px", color: "#ffa8a8", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }} title={log.error}>
+                                        {log.error}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  {log.status === "failed" && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => handleResendEmail(log.id)}
+                                      className="admin-action-btn btn-approve"
+                                      style={{ padding: "6px 10px", fontSize: "11px", gap: "4px", backgroundColor: "#2b8a3e" }}
+                                    >
+                                      <RefreshCw size={12} />
+                                      <span>Reenviar</span>
+                                    </button>
+                                  )}
+
+                                  {log.requestId && requests.find(r => r.id === log.requestId)?.status === "pending_confirmation" && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => handleConfirmManual(log.requestId)}
+                                      className="admin-action-btn btn-approve"
+                                      style={{ padding: "6px 10px", fontSize: "11px", gap: "4px", whiteSpace: "nowrap" }}
+                                    >
+                                      <Check size={12} />
+                                      <span>Confirmar Manual</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

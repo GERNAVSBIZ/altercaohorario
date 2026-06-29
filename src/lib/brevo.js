@@ -1,12 +1,14 @@
+import { adminDb } from "@/lib/firebase-admin";
+
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@sbiz.gov.br";
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "SBIZ - Operações Aeroportuárias";
 
 /**
- * Sends a transactional email via Brevo.
+ * Sends a transactional email via Brevo (raw).
  * If API key is missing or is placeholder, logs contents to console.
  */
-async function sendEmail({ to, subject, htmlContent, attachmentName, pdfBase64 }) {
+async function sendEmailRaw({ to, subject, htmlContent, attachmentName, pdfBase64 }) {
   const isPlaceholder = !BREVO_API_KEY || BREVO_API_KEY.includes("PLACEHOLDER");
 
   if (isPlaceholder) {
@@ -68,6 +70,149 @@ async function sendEmail({ to, subject, htmlContent, attachmentName, pdfBase64 }
 }
 
 /**
+ * Wrapper for sending email, logging it to Firestore, and alerting admins on failure.
+ */
+export async function sendEmail({
+  to,
+  subject,
+  htmlContent,
+  attachmentName = null,
+  pdfBase64 = null,
+  requestId = null,
+  emailType = "unknown",
+  skipNotificationOnFailure = false
+}) {
+  let status = "sent";
+  let errorMsg = null;
+  let result = null;
+
+  try {
+    result = await sendEmailRaw({ to, subject, htmlContent, attachmentName, pdfBase64 });
+    if (!result.success) {
+      status = "failed";
+      errorMsg = result.error || "Unknown send error";
+    }
+  } catch (err) {
+    status = "failed";
+    errorMsg = err.message;
+  }
+
+  // Create log payload
+  const logData = {
+    requestId,
+    emailType,
+    to,
+    subject,
+    sentAt: new Date().toISOString(),
+    status,
+    error: errorMsg,
+    payload: {
+      to,
+      subject,
+      htmlContent,
+      pdfBase64: pdfBase64 || null,
+      attachmentName: attachmentName || null
+    }
+  };
+
+  // Persist to database
+  if (adminDb) {
+    try {
+      await adminDb.collection("email_logs").add(logData);
+    } catch (dbErr) {
+      console.error("Failed to write to email_logs in Firestore:", dbErr);
+    }
+  } else {
+    // Sandbox fallback
+    if (!global.mockEmailLogs) {
+      global.mockEmailLogs = [];
+    }
+    const mockLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+      ...logData
+    };
+    global.mockEmailLogs.push(mockLog);
+  }
+
+  // Send admin notification on failure (unless skipped to avoid infinite loops)
+  if (status === "failed" && !skipNotificationOnFailure && emailType !== "failure_notification") {
+    // Attempt to notify the admin about the failure asynchronously (do not block)
+    notifyAdminAboutEmailFailure(to.map(t => t.email).join(", "), subject, errorMsg, requestId).catch(err => {
+      console.error("Error in async notifyAdminAboutEmailFailure:", err);
+    });
+  }
+
+  return { success: status === "sent", error: errorMsg, ...result };
+}
+
+/**
+ * Asynchronously notifies airport administrators when an email fails to send.
+ */
+async function notifyAdminAboutEmailFailure(recipientEmail, emailSubject, errorMsg, requestId) {
+  let adminEmail = process.env.AIRPORT_ADMIN_EMAIL || "administracao.sbiz@localhost.com";
+  if (adminDb) {
+    try {
+      const settingsSnap = await adminDb.collection("config").doc("settings").get();
+      if (settingsSnap.exists) {
+        const settings = settingsSnap.data();
+        if (settings.airportAdminEmail) {
+          adminEmail = settings.airportAdminEmail;
+        }
+      }
+    } catch (e) {
+      console.error("Error loading admin email for failure notification:", e);
+    }
+  }
+
+  const subject = `[ALERTA DE FALHA] Falha no Envio de E-mail - Solicitação #${requestId ? requestId.slice(-6).toUpperCase() : 'N/A'}`;
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ffccd5; border-radius: 8px; color: #333; background-color: #fff5f5;">
+      <h2 style="color: #c92a2a; border-bottom: 2px solid #ff8787; padding-bottom: 10px; margin-top: 0;">Alerta de Falha no Envio de E-mail</h2>
+      <p>Prezada Administração,</p>
+      <p>Ocorreu uma falha ao tentar enviar um e-mail do sistema:</p>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; width: 140px; color: #555;">Destinatário:</td>
+          <td style="padding: 6px 0;">${recipientEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Assunto Original:</td>
+          <td style="padding: 6px 0;">${emailSubject}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Erro Retornado:</td>
+          <td style="padding: 6px 0; color: #c92a2a; font-weight: bold;">${errorMsg}</td>
+        </tr>
+        ${requestId ? `
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">ID da Solicitação:</td>
+          <td style="padding: 6px 0;"><code>${requestId}</code></td>
+        </tr>` : ''}
+      </table>
+      <p style="margin-top: 20px;">Você pode acessar a aba de <strong>Logs</strong> no painel administrativo para tentar reenviar o e-mail ou confirmar a solicitação manualmente.</p>
+    </div>
+  `;
+
+  try {
+    const emails = typeof adminEmail === 'string'
+      ? adminEmail.split(/[,;]/).map(e => e.trim()).filter(Boolean)
+      : (Array.isArray(adminEmail) ? adminEmail : []);
+    const to = emails.map(email => ({ email, name: "Admin" }));
+
+    await sendEmail({
+      to,
+      subject,
+      htmlContent,
+      requestId,
+      emailType: "failure_notification",
+      skipNotificationOnFailure: true,
+    });
+  } catch (err) {
+    console.error("Failed to send admin email failure notification:", err);
+  }
+}
+
+/**
  * Sends a confirmation email to the user with the confirmation link and the generated PDF.
  */
 export async function sendUserConfirmationEmail({ email, name, confirmationUrl, pdfBase64, requestId }) {
@@ -102,6 +247,8 @@ export async function sendUserConfirmationEmail({ email, name, confirmationUrl, 
     htmlContent,
     attachmentName: `solicitacao_prorrogacao_${requestId.slice(-6).toUpperCase()}.pdf`,
     pdfBase64,
+    requestId,
+    emailType: "user_confirmation",
   });
 }
 
@@ -201,6 +348,8 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
     htmlContent,
     attachmentName: `solicitacao_SBIZ_${idShort}_${requestData.company.name.replace(/\s+/g, '_')}.pdf`,
     pdfBase64,
+    requestId: requestData.id,
+    emailType: "admin_notification",
   });
 }
 
@@ -298,6 +447,8 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
     htmlContent,
     attachmentName: `RASCUNHO_solicitacao_SBIZ_${idShort}.pdf`,
     pdfBase64,
+    requestId: requestData.id,
+    emailType: "admin_pre_notification",
   });
 }
 
@@ -373,6 +524,8 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
     to,
     subject,
     htmlContent,
+    requestId: requestData.id,
+    emailType: "operator_decision",
   });
 }
 
@@ -428,6 +581,8 @@ export async function sendDelinquentRejectionEmail({ email, name, requestData })
     to: [{ email, name }],
     subject,
     htmlContent,
+    requestId: requestData.id,
+    emailType: "delinquent_rejection",
   });
 }
 
@@ -490,7 +645,9 @@ export async function sendOperatorNotificationEmail({ operatorEmail, operatorNam
     to: [{ email: operatorEmail, name: operatorName }],
     subject,
     htmlContent,
-    attachmentName: `solicitacao_SBIZ_${idShort}_${requestData.company.name.replace(/\\s+/g, '_')}.pdf`,
+    attachmentName: `solicitacao_SBIZ_${idShort}_${requestData.company.name.replace(/\s+/g, '_')}.pdf`,
     pdfBase64,
+    requestId: requestData.id,
+    emailType: "operator_notification",
   });
 }
