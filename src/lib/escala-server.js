@@ -93,7 +93,10 @@ export async function getOperatorsFromScale(startIsoString) {
       const dateHeaders = data.dateHeaders || [];
       const scheduleData = data.scheduleData || [];
       
-      const dayIndex = dateHeaders.findIndex(d => parseInt(d) === targetDay);
+      const firstOneIndex = dateHeaders.findIndex(d => parseInt(d) === 1);
+      const dayIndex = firstOneIndex !== -1 
+        ? firstOneIndex + (targetDay - 1) 
+        : dateHeaders.findIndex(d => parseInt(d) === targetDay);
       if (dayIndex !== -1) {
         const matchingOps = scheduleData.filter(op => op.shifts && op.shifts[dayIndex] === targetShift);
         if (matchingOps.length > 0) {
