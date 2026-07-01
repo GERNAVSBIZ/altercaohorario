@@ -1158,7 +1158,7 @@ export default function OperationalPage() {
             </p>
           </div>
         ) : (
-          <div className="admin-table-container">
+          <div className="admin-table-container" style={{ maxHeight: "340px", overflowY: "auto" }}>
             <table className="admin-table">
               <thead>
                 <tr>
