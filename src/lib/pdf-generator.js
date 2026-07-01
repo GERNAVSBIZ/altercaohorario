@@ -13,6 +13,53 @@ export async function generateRequestPdf(data) {
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
+  // Wrap text helper with character-level fallback for long unbroken strings (e.g. emails)
+  const wrapText = (text, maxWidth, font, fontSize) => {
+    if (text === null || text === undefined || text === "") return ["-"];
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let currentLine = "";
+
+    words.forEach(word => {
+      let testLine = currentLine ? `${currentLine} ${word}` : word;
+      let width = font.widthOfTextAtSize(testLine, fontSize);
+      
+      if (width <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = "";
+        }
+        
+        let wordWidth = font.widthOfTextAtSize(word, fontSize);
+        if (wordWidth <= maxWidth) {
+          currentLine = word;
+        } else {
+          let tempWord = "";
+          for (let i = 0; i < word.length; i++) {
+            const char = word[i];
+            const testTemp = tempWord + char;
+            if (font.widthOfTextAtSize(testTemp, fontSize) > maxWidth) {
+              if (tempWord) {
+                lines.push(tempWord);
+              }
+              tempWord = char;
+            } else {
+              tempWord = testTemp;
+            }
+          }
+          currentLine = tempWord;
+        }
+      }
+    });
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    return lines.length > 0 ? lines : ["-"];
+  };
+
   const navyColor = rgb(11 / 255, 60 / 255, 93 / 255); // #0b3c5d (SBIZ Primary)
   const orangeColor = rgb(239 / 255, 91 / 255, 37 / 255); // #ef5b25 (SBIZ Accent)
   const darkTextColor = rgb(45 / 255, 55 / 255, 72 / 255); // Slate 800
@@ -125,49 +172,67 @@ export async function generateRequestPdf(data) {
     y -= 15;
   };
 
-  // Helper function to draw key-value pairs
+  // Helper function to draw key-value pairs with dynamic height and auto text wrapping
   const drawRow = (leftLabel, leftVal, rightLabel, rightVal) => {
-    y -= 16;
-    // Alternate row backgrounds for better readability
+    const leftMaxW = rightLabel ? 150 : 385;
+    const rightMaxW = 115;
+
+    const leftLines = wrapText(leftVal, leftMaxW, helveticaFont, 9);
+    const rightLines = rightLabel ? wrapText(rightVal, rightMaxW, helveticaFont, 9) : [];
+
+    const maxLines = Math.max(leftLines.length, rightLines.length);
+    const rowHeight = 6 + (maxLines * 11);
+
+    y -= rowHeight;
+
+    // Draw background rectangle
     page.drawRectangle({
       x: 40,
-      y: y - 3,
+      y: y,
       width: 515,
-      height: 16,
+      height: rowHeight,
       color: lightBgColor,
     });
 
+    // Draw left label
     page.drawText(leftLabel, {
       x: 50,
-      y: y,
+      y: y + rowHeight - 12,
       size: 9,
       font: helveticaBold,
       color: navyColor,
     });
 
-    page.drawText(String(leftVal || "-"), {
-      x: 160,
-      y: y,
-      size: 9,
-      font: helveticaFont,
-      color: darkTextColor,
+    // Draw left value lines
+    leftLines.forEach((line, idx) => {
+      page.drawText(line, {
+        x: 160,
+        y: y + rowHeight - 12 - (idx * 11),
+        size: 9,
+        font: helveticaFont,
+        color: darkTextColor,
+      });
     });
 
     if (rightLabel) {
+      // Draw right label
       page.drawText(rightLabel, {
         x: 320,
-        y: y,
+        y: y + rowHeight - 12,
         size: 9,
         font: helveticaBold,
         color: navyColor,
       });
 
-      page.drawText(String(rightVal || "-"), {
-        x: 430,
-        y: y,
-        size: 9,
-        font: helveticaFont,
-        color: darkTextColor,
+      // Draw right value lines
+      rightLines.forEach((line, idx) => {
+        page.drawText(line, {
+          x: 430,
+          y: y + rowHeight - 12 - (idx * 11),
+          size: 9,
+          font: helveticaFont,
+          color: darkTextColor,
+        });
       });
     }
   };
@@ -208,28 +273,6 @@ export async function generateRequestPdf(data) {
   
   const notesText = data.notes || "Sem observações adicionais.";
   
-  // Wrap text helper for notes section
-  const wrapText = (text, maxWidth, font, fontSize) => {
-    const words = text.split(" ");
-    const lines = [];
-    let currentLine = "";
-
-    words.forEach(word => {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const width = font.widthOfTextAtSize(testLine, fontSize);
-      if (width > maxWidth) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    });
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-    return lines;
-  };
-
   const wrappedNotes = wrapText(notesText, 495, helveticaFont, 9);
   wrappedNotes.forEach(line => {
     y -= 14;
@@ -278,12 +321,16 @@ export async function generateRequestPdf(data) {
     validationDetails += `   |   E-mail de Contato: ${data.company.email}`;
   }
 
-  page.drawText(validationDetails, {
-    x: 50,
-    y: y - 30,
-    size: 8,
-    font: helveticaFont,
-    color: darkTextColor,
+  // Wrap validation details to prevent overflow if contact email is very long
+  const wrappedValidation = wrapText(validationDetails, 505, helveticaFont, 8);
+  wrappedValidation.forEach((line, idx) => {
+    page.drawText(line, {
+      x: 50,
+      y: y - 30 - (idx * 11),
+      size: 8,
+      font: helveticaFont,
+      color: darkTextColor,
+    });
   });
 
   page.drawText("NAV Brasil - DNIZ  |  NAVMANAGER", {
