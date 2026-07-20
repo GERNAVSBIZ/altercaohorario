@@ -20,7 +20,8 @@ import {
   History,
   RefreshCw,
   ShieldCheck,
-  Clock
+  Clock,
+  X
 } from "lucide-react";
 
 // Helper to format ISO strings to Brasília local datetime-local format YYYY-MM-DDTHH:MM
@@ -40,6 +41,19 @@ const parseBrasiliaDate = (localISOString) => {
     return new Date(localISOString);
   }
   return new Date(localISOString + "-03:00");
+};
+
+// Helper to check if 17:30 Brasilia time deadline on period.start day has passed
+const isDeadlinePassed = (periodStartIso) => {
+  if (!periodStartIso) return false;
+  const start = new Date(periodStartIso);
+  if (isNaN(start.getTime())) return false;
+  
+  const brDateStr = start.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const deadline = new Date(`${brDateStr}T17:30:00-03:00`);
+  const now = new Date();
+  
+  return now.getTime() > deadline.getTime();
 };
 
 export default function DashboardPage() {
@@ -230,7 +244,45 @@ export default function DashboardPage() {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
+  const handleClientCancelRequest = async (requestId, periodStart) => {
+    if (isDeadlinePassed(periodStart)) {
+      alert("Ações de cancelamento só são permitidas até às 17h30 do dia da alteração de horário.");
+      return;
+    }
+
+    if (!confirm("Tem certeza que deseja cancelar esta solicitação de prorrogação de horário?")) {
+      return;
+    }
+
+    setHistoryLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const response = await fetch("/api/requests/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erro ao cancelar solicitação.");
+
+      setSuccessMsg(data.message || "Solicitação cancelada com sucesso!");
+      await fetchUserRequests();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      console.error("Client cancel request error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleStartEditRequest = (req) => {
+    if (isDeadlinePassed(req.period?.start)) {
+      alert("Ações de edição só são permitidas até às 17h30 do dia da alteração de horário.");
+      return;
+    }
+
     setEditingRequestId(req.id);
     setEditingRequestCreatedAt(req.createdAt || new Date().toISOString());
 
@@ -1081,31 +1133,78 @@ export default function DashboardPage() {
                       </div>
                     )}
 
+                    {isDeadlinePassed(req.period?.start) && req.approvalStatus !== "cancelled" && req.approvalStatus !== "not_authorized" && (
+                      <div style={{ 
+                        marginTop: "6px", 
+                        padding: "6px 10px", 
+                        backgroundColor: "rgba(239, 68, 68, 0.08)", 
+                        border: "1px solid rgba(239, 68, 68, 0.2)",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        color: "#f87171",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}>
+                        <Clock size={13} />
+                        <span>Prazo de edição/cancelamento pelo cliente encerrado (17h30 do dia do voo)</span>
+                      </div>
+                    )}
+
                     <div style={{ 
                       display: "flex", 
                       justifyContent: "flex-end", 
                       gap: "8px", 
                       borderTop: "1px dashed var(--border-dark)", 
                       paddingTop: "10px",
-                      marginTop: "4px"
+                      marginTop: "8px"
                     }}>
-                      <button
-                        type="button"
-                        onClick={() => handleStartEditRequest(req)}
-                        className="admin-action-btn"
-                        style={{ 
-                          padding: "6px 12px", 
-                          fontSize: "12px", 
-                          display: "inline-flex", 
-                          alignItems: "center", 
-                          gap: "4px",
-                          borderColor: "var(--accent)",
-                          color: "white" 
-                        }}
-                      >
-                        <RefreshCw size={12} />
-                        Solicitar Alteração / Editar
-                      </button>
+                      {req.approvalStatus !== "cancelled" && req.approvalStatus !== "not_authorized" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditRequest(req)}
+                            className="admin-action-btn"
+                            disabled={isDeadlinePassed(req.period?.start)}
+                            style={{ 
+                              padding: "6px 12px", 
+                              fontSize: "12px", 
+                              display: "inline-flex", 
+                              alignItems: "center", 
+                              gap: "4px",
+                              borderColor: isDeadlinePassed(req.period?.start) ? "rgba(255,255,255,0.1)" : "var(--accent)",
+                              color: isDeadlinePassed(req.period?.start) ? "rgba(255,255,255,0.4)" : "white",
+                              cursor: isDeadlinePassed(req.period?.start) ? "not-allowed" : "pointer"
+                            }}
+                            title={isDeadlinePassed(req.period?.start) ? "Prazo de edição encerrado às 17h30 do dia do voo" : "Editar solicitação"}
+                          >
+                            <RefreshCw size={12} />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleClientCancelRequest(req.id, req.period?.start)}
+                            className="admin-action-btn btn-reject"
+                            disabled={isDeadlinePassed(req.period?.start)}
+                            style={{ 
+                              padding: "6px 12px", 
+                              fontSize: "12px", 
+                              display: "inline-flex", 
+                              alignItems: "center", 
+                              gap: "4px",
+                              backgroundColor: isDeadlinePassed(req.period?.start) ? "rgba(255,255,255,0.05)" : "rgba(232, 89, 12, 0.15)",
+                              borderColor: isDeadlinePassed(req.period?.start) ? "rgba(255,255,255,0.1)" : "rgba(232, 89, 12, 0.4)",
+                              color: isDeadlinePassed(req.period?.start) ? "rgba(255,255,255,0.4)" : "#ffa8a8",
+                              cursor: isDeadlinePassed(req.period?.start) ? "not-allowed" : "pointer"
+                            }}
+                            title={isDeadlinePassed(req.period?.start) ? "Prazo de cancelamento encerrado às 17h30 do dia do voo" : "Cancelar solicitação"}
+                          >
+                            <X size={12} />
+                            Cancelar Solicitação
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))

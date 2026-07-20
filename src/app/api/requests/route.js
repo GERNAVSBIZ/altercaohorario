@@ -4,6 +4,18 @@ import { generateRequestPdf } from "@/lib/pdf-generator";
 import { sendUserConfirmationEmail, sendAdminPreNotificationEmail } from "@/lib/brevo";
 import crypto from "crypto";
 
+function checkIsDeadlinePassed(periodStartIso) {
+  if (!periodStartIso) return false;
+  const start = new Date(periodStartIso);
+  if (isNaN(start.getTime())) return false;
+  
+  const brDateStr = start.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const deadline = new Date(`${brDateStr}T17:30:00-03:00`);
+  const now = new Date();
+  
+  return now.getTime() > deadline.getTime();
+}
+
 export async function POST(req) {
   try {
     const data = await req.json();
@@ -52,11 +64,17 @@ export async function POST(req) {
               { status: 403 }
             );
           }
+          if (checkIsDeadlinePassed(existingData.period?.start)) {
+            return NextResponse.json(
+              { error: "Edições de solicitação pelo operador só são permitidas até às 17h30 do dia da alteração de horário." },
+              { status: 400 }
+            );
+          }
         }
       } catch (err) {
-        console.error("Error verifying request ownership:", err);
+        console.error("Error verifying request ownership/deadline:", err);
         return NextResponse.json(
-          { error: "Erro ao validar propriedade da solicitação: " + err.message },
+          { error: "Erro ao validar permissão de edição da solicitação: " + err.message },
           { status: 500 }
         );
       }
