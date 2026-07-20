@@ -123,6 +123,7 @@ export async function generateRequestPdf(data) {
 
   const isPending = data.status === "pending_confirmation";
   const isRejected = data.approvalStatus === "not_authorized";
+  const isCancelled = data.approvalStatus === "cancelled";
 
   let statusText = "CONFIRMADO";
   let statusColor = rgb(46 / 255, 117 / 255, 89 / 255); // Green
@@ -133,6 +134,9 @@ export async function generateRequestPdf(data) {
   } else if (isRejected) {
     statusText = "REPROVADO";
     statusColor = rgb(200 / 255, 30 / 255, 30 / 255); // Red
+  } else if (isCancelled) {
+    statusText = "CANCELADO";
+    statusColor = rgb(232 / 255, 89 / 255, 12 / 255); // Dark Orange/Red
   }
 
   page.drawText(`Status: ${statusText}`, {

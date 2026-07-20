@@ -316,6 +316,12 @@ export default function AdminPage() {
 
   // Handle request approval decision
   const handleApprove = async (id, decision) => {
+    if (decision === "cancelled") {
+      if (!confirm("Tem certeza que deseja cancelar esta prorrogação de horário que já foi autorizada? Um e-mail de notificação será enviado ao operador.")) {
+        return;
+      }
+    }
+
     setSuccessMsg("");
     setErrorMsg("");
     setLoading(true);
@@ -328,12 +334,16 @@ export default function AdminPage() {
             return {
               ...req,
               approvalStatus: decision,
-              authorizedAt: new Date().toISOString()
+              ...(decision === "authorized" ? { authorizedAt: new Date().toISOString() } : {}),
+              ...(decision === "cancelled" ? { cancelledAt: new Date().toISOString() } : {})
             };
           }
           return req;
         }));
-        setSuccessMsg(`[SIMULAÇÃO] Solicitação ${decision === "authorized" ? "autorizada" : "recusada"} com sucesso!`);
+        let msgDesc = "autorizada";
+        if (decision === "not_authorized") msgDesc = "recusada";
+        if (decision === "cancelled") msgDesc = "cancelada";
+        setSuccessMsg(`[SIMULAÇÃO] Solicitação ${msgDesc} com sucesso!`);
         setTimeout(() => setSuccessMsg(""), 4000);
         return;
       }
@@ -746,6 +756,9 @@ export default function AdminPage() {
                           {req.approvalStatus === "not_authorized" && (
                             <span className="badge badge-danger">Recusado</span>
                           )}
+                          {req.approvalStatus === "cancelled" && (
+                            <span className="badge badge-warning" style={{ backgroundColor: "#e8590c", color: "white" }}>Cancelada</span>
+                          )}
                           {req.status === "confirmed" && (!req.approvalStatus || req.approvalStatus === "pending_analysis") && (
                             <span className="badge badge-info">Em Análise</span>
                           )}
@@ -814,6 +827,20 @@ export default function AdminPage() {
                                   <span>Recusar</span>
                                 </button>
                               </div>
+                            ) : req.status === "confirmed" && req.approvalStatus === "authorized" ? (
+                              <button 
+                                onClick={() => handleApprove(req.id, "cancelled")}
+                                className="admin-action-btn btn-reject"
+                                style={{ padding: "6px 10px", fontSize: "11px", gap: "4px", backgroundColor: "rgba(232, 89, 12, 0.15)", borderColor: "rgba(232, 89, 12, 0.4)", color: "#ffa8a8" }}
+                                title="Cancelar Prorrogação Autorizada"
+                              >
+                                <X size={12} />
+                                <span>Cancelar</span>
+                              </button>
+                            ) : req.status === "confirmed" && req.approvalStatus === "cancelled" ? (
+                              <span style={{ fontSize: "11.5px", color: "#ffa8a8", fontWeight: "500" }}>
+                                Cancelada
+                              </span>
                             ) : req.status === "confirmed" ? (
                               <span style={{ fontSize: "11.5px", color: "var(--text-dark-muted)", fontWeight: "500" }}>
                                 Finalizado

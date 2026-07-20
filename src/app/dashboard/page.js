@@ -1054,6 +1054,9 @@ export default function DashboardPage() {
                         {req.approvalStatus === "not_authorized" && (
                           <span className="badge badge-danger" style={{ width: "100%", fontSize: "10px", padding: "2px 6px" }}>Recusado</span>
                         )}
+                        {req.approvalStatus === "cancelled" && (
+                          <span className="badge badge-warning" style={{ width: "100%", fontSize: "10px", padding: "2px 6px", backgroundColor: "#e8590c", color: "white" }}>Cancelada</span>
+                        )}
                         {req.status === "confirmed" && (!req.approvalStatus || req.approvalStatus === "pending_analysis") && (
                           <span className="badge badge-info" style={{ width: "100%", fontSize: "10px", padding: "2px 6px" }}>Em Análise</span>
                         )}

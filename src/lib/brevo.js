@@ -458,28 +458,43 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
 export async function sendOperatorDecisionEmail({ email, name, requestData, decision, ccEmails }) {
   const idShort = requestData.id.slice(-6).toUpperCase();
   const isApproved = decision === "authorized";
-  const statusLabel = isApproved ? "AUTORIZADA" : "RECUSADA";
+  const isCancelled = decision === "cancelled";
+  
+  let statusLabel = "RECUSADA";
+  let statusColor = "#c92a2a";
+  let statusBg = "#fff5f5";
+  let statusBorder = "#ffc9c9";
+  let statusMessage = "Infelizmente a solicitação de prorrogação de horário não pôde ser autorizada pela gerência neste momento.";
+
+  if (isApproved) {
+    statusLabel = "AUTORIZADA";
+    statusColor = "#2b8a3e";
+    statusBg = "#ebfbee";
+    statusBorder = "#b2f2bb";
+    statusMessage = "O seu voo foi autorizado para operar durante a prorrogação solicitada.";
+  } else if (isCancelled) {
+    statusLabel = "CANCELADA";
+    statusColor = "#e8590c";
+    statusBg = "#fff4e6";
+    statusBorder = "#ffd8a8";
+    statusMessage = "A solicitação de prorrogação de horário foi CANCELADA a pedido do operador da aeronave.";
+  }
+
   const subject = `[${statusLabel}] Solicitação de Prorrogação de Horário #${idShort} - SBIZ`;
 
   const formattedStart = new Date(requestData.period.start).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   const formattedEnd = new Date(requestData.period.end).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
-  const statusColor = isApproved ? "#2b8a3e" : "#c92a2a";
-  const statusBg = isApproved ? "#ebfbee" : "#fff5f5";
-  const statusBorder = isApproved ? "#b2f2bb" : "#ffc9c9";
-
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; color: #333;">
       <h2 style="color: #0b3c5d; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Status de Solicitação Atualizado</h2>
       <p>Olá, <strong>${name}</strong>,</p>
-      <p>A gerência da <strong>DNIZ - NAV Brasil</strong> avaliou a sua solicitação de prorrogação de horário para o Aeroporto de Imperatriz (SBIZ).</p>
+      <p>A gerência da <strong>DNIZ - NAV Brasil</strong> atualizou a sua solicitação de prorrogação de horário para o Aeroporto de Imperatriz (SBIZ).</p>
       
       <div style="background-color: ${statusBg}; border: 1px solid ${statusBorder}; border-left: 5px solid ${statusColor}; padding: 15px; margin: 20px 0; border-radius: 4px; color: ${statusColor};">
-        <h4 style="margin: 0 0 5px 0; font-size: 16px;">Sua solicitação foi: <strong>${statusLabel}</strong></h4>
+        <h4 style="margin: 0 0 5px 0; font-size: 16px;">Sua solicitação está: <strong>${statusLabel}</strong></h4>
         <p style="margin: 0; font-size: 14px; color: #555;">
-          ${isApproved 
-            ? "O seu voo foi autorizado para operar durante a prorrogação solicitada." 
-            : "Infelizmente a solicitação de prorrogação de horário não pôde ser autorizada pela gerência neste momento."}
+          ${statusMessage}
         </p>
       </div>
 

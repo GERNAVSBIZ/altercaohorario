@@ -5,7 +5,7 @@ export async function POST(req) {
   try {
     const { id, decision } = await req.json();
 
-    if (!id || !["authorized", "not_authorized"].includes(decision)) {
+    if (!id || !["authorized", "not_authorized", "cancelled"].includes(decision)) {
       return NextResponse.json(
         { error: "Parâmetros inválidos fornecidos para a aprovação." },
         { status: 400 }
@@ -27,10 +27,16 @@ export async function POST(req) {
 
       const requestData = { id: docSnap.id, ...docSnap.data() };
 
-      await requestRef.update({
+      const updateData = {
         approvalStatus: decision,
-        authorizedAt,
-      });
+      };
+      if (decision === "authorized") {
+        updateData.authorizedAt = authorizedAt;
+      } else if (decision === "cancelled") {
+        updateData.cancelledAt = authorizedAt;
+      }
+
+      await requestRef.update(updateData);
 
       console.log(`[FIREBASE] Solicitação #${id} atualizada para approvalStatus: ${decision}`);
 
@@ -67,9 +73,13 @@ export async function POST(req) {
       console.log(`[MOCK EMAIL SENT] E-mail de decisão enviado para operador com status: ${decision}`);
     }
 
+    let decisionMsg = "autorizada";
+    if (decision === "not_authorized") decisionMsg = "recusada";
+    if (decision === "cancelled") decisionMsg = "cancelada";
+
     return NextResponse.json({
       success: true,
-      message: `Solicitação ${decision === "authorized" ? "autorizada" : "recusada"} com sucesso!`,
+      message: `Solicitação ${decisionMsg} com sucesso!`,
     });
 
   } catch (error) {
