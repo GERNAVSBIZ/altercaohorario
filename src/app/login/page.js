@@ -173,6 +173,16 @@ export default function LoginPage() {
             <Plane size={28} style={{ transform: "rotate(45deg)" }} />
           </div>
           <h1 className="brand-title">NAVMANAGER</h1>
+          <div style={{ 
+            fontSize: "14px", 
+            color: "white", 
+            fontWeight: "600", 
+            marginTop: "2px", 
+            marginBottom: "2px",
+            letterSpacing: "0.03em"
+          }}>
+            Alteração de Horário AFIS
+          </div>
           <p className="brand-subtitle">NAV Brasil - DNIZ</p>
         </div>
 
