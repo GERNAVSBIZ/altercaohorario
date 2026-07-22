@@ -1307,23 +1307,53 @@ export default function OperationalPage() {
                                 </div>
                                 <div>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Início (LOCAL Brasília):</span>
-                                  <input 
-                                    type="datetime-local"
-                                    className="form-input"
-                                    style={{ padding: "4px", fontSize: "11px", height: "auto" }}
-                                    value={att.start}
-                                    onChange={e => handleUpdateAttendance(att.id, "start", e.target.value)}
-                                  />
+                                  <div style={{ display: "flex", gap: "4px", alignItems: "center", marginTop: "2px" }}>
+                                    <input 
+                                      type="datetime-local"
+                                      className="form-input"
+                                      style={{ padding: "4px", fontSize: "11px", height: "30px", flex: 1 }}
+                                      value={att.start}
+                                      onChange={e => handleUpdateAttendance(att.id, "start", e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        const inputEl = e.currentTarget.previousSibling;
+                                        if (inputEl) inputEl.blur();
+                                      }}
+                                      className="admin-action-btn btn-approve"
+                                      style={{ padding: "4px 8px", fontSize: "10.5px", height: "30px", minWidth: "42px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                                      title="Confirmar data/hora"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
                                 </div>
                                 <div>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Fim (LOCAL Brasília):</span>
-                                  <input 
-                                    type="datetime-local"
-                                    className="form-input"
-                                    style={{ padding: "4px", fontSize: "11px", height: "auto" }}
-                                    value={att.end}
-                                    onChange={e => handleUpdateAttendance(att.id, "end", e.target.value)}
-                                  />
+                                  <div style={{ display: "flex", gap: "4px", alignItems: "center", marginTop: "2px" }}>
+                                    <input 
+                                      type="datetime-local"
+                                      className="form-input"
+                                      style={{ padding: "4px", fontSize: "11px", height: "30px", flex: 1 }}
+                                      value={att.end}
+                                      onChange={e => handleUpdateAttendance(att.id, "end", e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        const inputEl = e.currentTarget.previousSibling;
+                                        if (inputEl) inputEl.blur();
+                                      }}
+                                      className="admin-action-btn btn-approve"
+                                      style={{ padding: "4px 8px", fontSize: "10.5px", height: "30px", minWidth: "42px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                                      title="Confirmar data/hora"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
                                 </div>
                                 <div>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Operador (PNA/OEA):</span>
