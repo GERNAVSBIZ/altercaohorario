@@ -4,6 +4,15 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "no-reply@sbiz.gov.br";
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "SBIZ - Operações Aeroportuárias";
 
+function formatIntentions(intentions) {
+  if (!intentions) return "Não especificada";
+  const list = [];
+  if (intentions.decolagem) list.push("Decolagem");
+  if (intentions.pouso) list.push("Pouso");
+  if (intentions.alternativa) list.push("Alternativa");
+  return list.length > 0 ? list.join(", ") : "Nenhuma";
+}
+
 /**
  * Sends a transactional email via Brevo (raw).
  * If API key is missing or is placeholder, logs contents to console.
@@ -215,7 +224,7 @@ async function notifyAdminAboutEmailFailure(recipientEmail, emailSubject, errorM
 /**
  * Sends a confirmation email to the user with the confirmation link and the generated PDF.
  */
-export async function sendUserConfirmationEmail({ email, name, confirmationUrl, pdfBase64, requestId }) {
+export async function sendUserConfirmationEmail({ email, name, confirmationUrl, pdfBase64, requestId, intentions }) {
   const subject = `SBIZ - Confirme sua solicitação de prorrogação #${requestId.slice(-6).toUpperCase()}`;
   
   const htmlContent = `
@@ -223,6 +232,11 @@ export async function sendUserConfirmationEmail({ email, name, confirmationUrl, 
       <h2 style="color: #0b3c5d; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Confirmação de Solicitação</h2>
       <p>Olá, <strong>${name}</strong>,</p>
       <p>Recebemos o preenchimento dos dados para a prorrogação de horário da NAV Brasil - DNIZ.</p>
+      
+      <div style="background-color: #f5f5f5; padding: 12px; margin: 15px 0; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+        <strong>Intenção de Voo:</strong> ${formatIntentions(intentions)}
+      </div>
+
       <p>O PDF oficial foi gerado e está anexado a este e-mail para sua conferência.</p>
       
       <div style="background-color: #f9f9f9; border-left: 4px solid #ef5b25; padding: 15px; margin: 20px 0; border-radius: 0 4px 4px 0;">
@@ -298,6 +312,10 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
           <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Intenção de Voo:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">${formatIntentions(requestData.intentions)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Espécie do Serviço:</td>
@@ -405,6 +423,10 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
           <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
         </tr>
         <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Intenção de Voo:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">${formatIntentions(requestData.intentions)}</td>
+        </tr>
+        <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Espécie do Serviço:</td>
           <td style="padding: 6px 0;">${requestData.serviceType}</td>
         </tr>
@@ -507,6 +529,10 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
           <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Intenção de Voo:</td>
+          <td style="padding: 6px 0;">${formatIntentions(requestData.intentions)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Aeronave:</td>
@@ -627,6 +653,10 @@ export async function sendOperatorNotificationEmail({ operatorEmail, operatorNam
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Período Solicitado:</td>
           <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">De ${formattedStart} a ${formattedEnd}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-weight: bold; color: #555;">Intenção de Voo:</td>
+          <td style="padding: 6px 0; font-weight: bold; color: #ef5b25;">${formatIntentions(requestData.intentions)}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: bold; color: #555;">Aeronave:</td>

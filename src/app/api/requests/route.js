@@ -138,6 +138,7 @@ export async function POST(req) {
       confirmationUrl,
       pdfBase64,
       requestId,
+      intentions: requestData.intentions,
     });
 
     if (!emailResult.success) {
