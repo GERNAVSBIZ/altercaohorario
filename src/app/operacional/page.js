@@ -838,8 +838,30 @@ export default function OperationalPage() {
     return matchesMonth && matchesOperator && matchesYear;
   });
 
+  const mergeIntervals = (intervals) => {
+    if (intervals.length <= 1) return intervals;
+    const sorted = [...intervals].sort((a, b) => a.start.getTime() - b.start.getTime());
+    const merged = [];
+    let current = sorted[0];
+    merged.push(current);
+
+    for (let i = 1; i < sorted.length; i++) {
+      const next = sorted[i];
+      if (next.start.getTime() <= current.end.getTime()) {
+        if (next.end.getTime() > current.end.getTime()) {
+          current.end = next.end;
+        }
+      } else {
+        current = next;
+        merged.push(current);
+      }
+    }
+    return merged;
+  };
+
   const getReportData = () => {
     const report = {};
+    const operatorIntervals = {};
 
     reportRequestsList.forEach(req => {
       let attendances = [];
@@ -860,10 +882,6 @@ export default function OperationalPage() {
         // If we filtered by a specific operator, restrict report metrics to only that operator
         if (selectedOperator !== "Todos" && op !== selectedOperator) return;
 
-        if (!report[op]) {
-          report[op] = { name: op, count: 0, durationMin: 0, antMin: 0, prorMin: 0 };
-        }
-
         const reqStart = new Date(req.period?.start);
         const reqEnd = new Date(req.period?.end);
         const actStart = new Date(att.start);
@@ -873,31 +891,65 @@ export default function OperationalPage() {
           return;
         }
 
-        const durationMin = Math.round((actEnd - actStart) / 60000);
-
-        // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
         const flightDay = getFlightDay(reqStart);
+        const flightDayStr = flightDay.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+
+        if (!operatorIntervals[op]) {
+          operatorIntervals[op] = {};
+        }
+        if (!operatorIntervals[op][flightDayStr]) {
+          operatorIntervals[op][flightDayStr] = {
+            flightDay: flightDay,
+            intervals: [],
+            count: 0
+          };
+        }
+
+        operatorIntervals[op][flightDayStr].intervals.push({
+          start: new Date(actStart.getTime()),
+          end: new Date(actEnd.getTime())
+        });
+        operatorIntervals[op][flightDayStr].count += 1;
+      });
+    });
+
+    Object.keys(operatorIntervals).forEach(op => {
+      report[op] = { name: op, count: 0, durationMin: 0, antMin: 0, prorMin: 0 };
+      const daysObj = operatorIntervals[op];
+
+      Object.keys(daysObj).forEach(dayStr => {
+        const dayData = daysObj[dayStr];
+        const flightDay = dayData.flightDay;
+        const merged = mergeIntervals(dayData.intervals);
+        
         const shiftStartLimit = getBrasiliaBoundary(flightDay, 0, 0);
         const shiftEndLimit = getBrasiliaBoundary(flightDay, 17, 50);
 
-        // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
-        let antMin = 0;
-        if (actStart < shiftStartLimit) {
-          const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
-          antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
-        }
+        report[op].count += dayData.count;
 
-        // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
-        let prorMin = 0;
-        if (actEnd > shiftEndLimit) {
-          const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
-          prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
-        }
+        merged.forEach(interval => {
+          const actStart = interval.start;
+          const actEnd = interval.end;
+          const durationMin = Math.round((actEnd - actStart) / 60000);
 
-        report[op].count += 1;
-        report[op].durationMin += durationMin;
-        report[op].antMin += antMin;
-        report[op].prorMin += prorMin;
+          // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
+          let antMin = 0;
+          if (actStart < shiftStartLimit) {
+            const antEnd = actEnd < shiftStartLimit ? actEnd : shiftStartLimit;
+            antMin = Math.max(0, Math.round((antEnd - actStart) / 60000));
+          }
+
+          // Prorrogação (only if actual end is after operator shift end at 17:50 LOCAL)
+          let prorMin = 0;
+          if (actEnd > shiftEndLimit) {
+            const prorStart = actStart > shiftEndLimit ? actStart : shiftEndLimit;
+            prorMin = Math.max(0, Math.round((actEnd - prorStart) / 60000));
+          }
+
+          report[op].durationMin += durationMin;
+          report[op].antMin += antMin;
+          report[op].prorMin += prorMin;
+        });
       });
     });
 
