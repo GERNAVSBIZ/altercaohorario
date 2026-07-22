@@ -135,6 +135,39 @@ const getFlightDay = (reqStart) => {
   return reqStart;
 };
 
+// Convert UTC/ISO string to YYYY-MM-DD and HH:MM in Brasília time (UTC-3)
+const splitBrasiliaDateTime = (isoString) => {
+  if (!isoString) {
+    const now = new Date();
+    const brDate = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    return {
+      date: brDate.toISOString().slice(0, 10),
+      time: "12:00"
+    };
+  }
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) {
+    const now = new Date();
+    const brDate = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    return {
+      date: brDate.toISOString().slice(0, 10),
+      time: "12:00"
+    };
+  }
+  const brDate = new Date(date.getTime() - 3 * 60 * 60 * 1000);
+  return {
+    date: brDate.toISOString().slice(0, 10),
+    time: brDate.toISOString().slice(11, 16)
+  };
+};
+
+// Combine YYYY-MM-DD and HH:MM as a Brasília time Date object string
+const combineBrasiliaDateTime = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return "";
+  const dateObj = new Date(`${dateStr}T${timeStr}:00-03:00`);
+  return dateObj.toISOString();
+};
+
 // Helper to calculate actual attendance duration, anticipation, and extension based on operator shift boundaries (00:00 - 17:50)
 const renderAttendanceDetails = (req) => {
   const reqStart = new Date(req.period?.start);
@@ -347,6 +380,11 @@ export default function OperationalPage() {
   const [selectedOperator, setSelectedOperator] = useState("Todos");
   const [showReport, setShowReport] = useState(true);
   const [selectedYear, setSelectedYear] = useState("Todos");
+
+  // Custom Date/Time picker popover state
+  const [activePicker, setActivePicker] = useState(null); // { attendanceId, field: "start" | "end" }
+  const [tempDate, setTempDate] = useState("");
+  const [tempTime, setTempTime] = useState("");
 
   // Edit States
   const [editingId, setEditingId] = useState(null);
@@ -684,6 +722,25 @@ export default function OperationalPage() {
 
       return updated;
     });
+  };
+
+  const handleOpenPicker = (attendanceId, field, currentValue) => {
+    const { date, time } = splitBrasiliaDateTime(currentValue);
+    setTempDate(date);
+    setTempTime(time);
+    setActivePicker({ attendanceId, field });
+  };
+
+  const handleConfirmPicker = () => {
+    if (!activePicker) return;
+    const { attendanceId, field } = activePicker;
+    const combinedIso = combineBrasiliaDateTime(tempDate, tempTime);
+    handleUpdateAttendance(attendanceId, field, combinedIso);
+    setActivePicker(null);
+  };
+
+  const handleCancelPicker = () => {
+    setActivePicker(null);
   };
 
   const handleSaveEdit = async (id) => {
@@ -1305,55 +1362,180 @@ export default function OperationalPage() {
                                     </button>
                                   )}
                                 </div>
-                                <div>
+                                <div style={{ position: "relative" }}>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Início (LOCAL Brasília):</span>
-                                  <div style={{ display: "flex", gap: "4px", alignItems: "center", marginTop: "2px" }}>
-                                    <input 
-                                      type="datetime-local"
-                                      className="form-input"
-                                      style={{ padding: "4px", fontSize: "11px", height: "30px", flex: 1 }}
-                                      value={att.start}
-                                      onChange={e => handleUpdateAttendance(att.id, "start", e.target.value)}
-                                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        const inputEl = e.currentTarget.previousSibling;
-                                        if (inputEl) inputEl.blur();
-                                      }}
-                                      className="admin-action-btn btn-approve"
-                                      style={{ padding: "4px 8px", fontSize: "10.5px", height: "30px", minWidth: "42px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                                      title="Confirmar data/hora"
-                                    >
-                                      OK
-                                    </button>
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPicker(att.id, "start", att.start)}
+                                    className="form-input"
+                                    style={{ 
+                                      display: "flex", 
+                                      alignItems: "center", 
+                                      justifyContent: "space-between", 
+                                      padding: "6px 8px", 
+                                      fontSize: "11.5px", 
+                                      height: "30px", 
+                                      backgroundColor: "rgba(255, 255, 255, 0.05)", 
+                                      border: "1px solid var(--border-dark)", 
+                                      borderRadius: "4px", 
+                                      color: att.start ? "white" : "var(--text-dark-muted)",
+                                      cursor: "pointer",
+                                      width: "100%",
+                                      textAlign: "left"
+                                    }}
+                                  >
+                                    <span>{att.start ? formatToBrasiliaDateTime(att.start) : "Selecionar início..."}</span>
+                                    <CalendarDays size={13} style={{ color: "var(--accent)" }} />
+                                  </button>
+
+                                  {activePicker && activePicker.attendanceId === att.id && activePicker.field === "start" && (
+                                    <div style={{
+                                      position: "absolute",
+                                      top: "35px",
+                                      left: "0",
+                                      zIndex: 9999,
+                                      background: "#121824",
+                                      border: "1px solid var(--accent)",
+                                      borderRadius: "6px",
+                                      padding: "12px",
+                                      boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: "10px",
+                                      width: "220px"
+                                    }}>
+                                      <div style={{ fontSize: "11px", fontWeight: "bold", color: "white" }}>SELECIONAR DATA E HORA DE INÍCIO</div>
+                                      
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                        <label style={{ fontSize: "9px", color: "var(--text-dark-muted)" }}>Data:</label>
+                                        <input 
+                                          type="date" 
+                                          className="form-input" 
+                                          style={{ padding: "4px 8px", fontSize: "12px", height: "30px", backgroundColor: "#1e293b", color: "white", border: "1px solid #334155" }}
+                                          value={tempDate}
+                                          onChange={e => setTempDate(e.target.value)}
+                                        />
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                        <label style={{ fontSize: "9px", color: "var(--text-dark-muted)" }}>Hora:</label>
+                                        <input 
+                                          type="time" 
+                                          className="form-input" 
+                                          style={{ padding: "4px 8px", fontSize: "12px", height: "30px", backgroundColor: "#1e293b", color: "white", border: "1px solid #334155" }}
+                                          value={tempTime}
+                                          onChange={e => setTempTime(e.target.value)}
+                                        />
+                                      </div>
+
+                                      <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                                        <button
+                                          type="button"
+                                          onClick={handleConfirmPicker}
+                                          className="admin-action-btn btn-approve"
+                                          style={{ flex: 1, padding: "6px", fontSize: "11.5px", height: "28px" }}
+                                        >
+                                          Confirmar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelPicker}
+                                          className="admin-action-btn btn-reject"
+                                          style={{ flex: 1, padding: "6px", fontSize: "11.5px", height: "28px" }}
+                                        >
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                <div>
+
+                                <div style={{ position: "relative" }}>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Fim (LOCAL Brasília):</span>
-                                  <div style={{ display: "flex", gap: "4px", alignItems: "center", marginTop: "2px" }}>
-                                    <input 
-                                      type="datetime-local"
-                                      className="form-input"
-                                      style={{ padding: "4px", fontSize: "11px", height: "30px", flex: 1 }}
-                                      value={att.end}
-                                      onChange={e => handleUpdateAttendance(att.id, "end", e.target.value)}
-                                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        const inputEl = e.currentTarget.previousSibling;
-                                        if (inputEl) inputEl.blur();
-                                      }}
-                                      className="admin-action-btn btn-approve"
-                                      style={{ padding: "4px 8px", fontSize: "10.5px", height: "30px", minWidth: "42px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                                      title="Confirmar data/hora"
-                                    >
-                                      OK
-                                    </button>
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPicker(att.id, "end", att.end)}
+                                    className="form-input"
+                                    style={{ 
+                                      display: "flex", 
+                                      alignItems: "center", 
+                                      justifyContent: "space-between", 
+                                      padding: "6px 8px", 
+                                      fontSize: "11.5px", 
+                                      height: "30px", 
+                                      backgroundColor: "rgba(255, 255, 255, 0.05)", 
+                                      border: "1px solid var(--border-dark)", 
+                                      borderRadius: "4px", 
+                                      color: att.end ? "white" : "var(--text-dark-muted)",
+                                      cursor: "pointer",
+                                      width: "100%",
+                                      textAlign: "left"
+                                    }}
+                                  >
+                                    <span>{att.end ? formatToBrasiliaDateTime(att.end) : "Selecionar fim..."}</span>
+                                    <CalendarDays size={13} style={{ color: "var(--accent)" }} />
+                                  </button>
+
+                                  {activePicker && activePicker.attendanceId === att.id && activePicker.field === "end" && (
+                                    <div style={{
+                                      position: "absolute",
+                                      top: "35px",
+                                      left: "0",
+                                      zIndex: 9999,
+                                      background: "#121824",
+                                      border: "1px solid var(--accent)",
+                                      borderRadius: "6px",
+                                      padding: "12px",
+                                      boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: "10px",
+                                      width: "220px"
+                                    }}>
+                                      <div style={{ fontSize: "11px", fontWeight: "bold", color: "white" }}>SELECIONAR DATA E HORA DE FIM</div>
+                                      
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                        <label style={{ fontSize: "9px", color: "var(--text-dark-muted)" }}>Data:</label>
+                                        <input 
+                                          type="date" 
+                                          className="form-input" 
+                                          style={{ padding: "4px 8px", fontSize: "12px", height: "30px", backgroundColor: "#1e293b", color: "white", border: "1px solid #334155" }}
+                                          value={tempDate}
+                                          onChange={e => setTempDate(e.target.value)}
+                                        />
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                        <label style={{ fontSize: "9px", color: "var(--text-dark-muted)" }}>Hora:</label>
+                                        <input 
+                                          type="time" 
+                                          className="form-input" 
+                                          style={{ padding: "4px 8px", fontSize: "12px", height: "30px", backgroundColor: "#1e293b", color: "white", border: "1px solid #334155" }}
+                                          value={tempTime}
+                                          onChange={e => setTempTime(e.target.value)}
+                                        />
+                                      </div>
+
+                                      <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                                        <button
+                                          type="button"
+                                          onClick={handleConfirmPicker}
+                                          className="admin-action-btn btn-approve"
+                                          style={{ flex: 1, padding: "6px", fontSize: "11.5px", height: "28px" }}
+                                        >
+                                          Confirmar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelPicker}
+                                          className="admin-action-btn btn-reject"
+                                          style={{ flex: 1, padding: "6px", fontSize: "11.5px", height: "28px" }}
+                                        >
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                                 <div>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Operador (PNA/OEA):</span>
