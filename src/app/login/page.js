@@ -218,7 +218,7 @@ export default function LoginPage() {
                 style={{ paddingLeft: "44px" }}
                 placeholder="seu.email@exemplo.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value.toLowerCase())}
                 disabled={loading}
               />
             </div>

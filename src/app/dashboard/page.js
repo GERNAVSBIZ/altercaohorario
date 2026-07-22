@@ -726,7 +726,7 @@ export default function DashboardPage() {
                         className="form-input" 
                         placeholder="contato@empresa.com"
                         value={companyEmail}
-                        onChange={e => setCompanyEmail(e.target.value)}
+                        onChange={e => setCompanyEmail(e.target.value.toLowerCase())}
                         disabled={submitLoading}
                         required
                       />
@@ -817,7 +817,7 @@ export default function DashboardPage() {
                           className="form-input" 
                           placeholder="financeiro@empresa.com"
                           value={requestorBillingEmail}
-                          onChange={e => setRequestorBillingEmail(e.target.value)}
+                          onChange={e => setRequestorBillingEmail(e.target.value.toLowerCase())}
                           disabled={submitLoading}
                           required
                         />

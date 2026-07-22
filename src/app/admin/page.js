@@ -903,7 +903,7 @@ export default function AdminPage() {
                   className="form-input" 
                   placeholder="administracao.sbiz@navbrasil.gov.br, faturamento@navbrasil.gov.br"
                   value={airportAdminEmail}
-                  onChange={e => setAirportAdminEmail(e.target.value)}
+                  onChange={e => setAirportAdminEmail(e.target.value.toLowerCase())}
                   disabled={settingsLoading || loading}
                   required
                 />
@@ -919,7 +919,7 @@ export default function AdminPage() {
                   className="form-input" 
                   placeholder="adriano.matos@navbrasil.gov.br, gernavsbiz@gmail.com"
                   value={adminEmails}
-                  onChange={e => setAdminEmails(e.target.value)}
+                  onChange={e => setAdminEmails(e.target.value.toLowerCase())}
                   disabled={settingsLoading || loading}
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
@@ -934,7 +934,7 @@ export default function AdminPage() {
                   className="form-input" 
                   placeholder="faturamento.sbiz@navbrasil.gov.br, supervisao.sbiz@navbrasil.gov.br"
                   value={ccDecisionEmails}
-                  onChange={e => setCcDecisionEmails(e.target.value)}
+                  onChange={e => setCcDecisionEmails(e.target.value.toLowerCase())}
                   disabled={settingsLoading || loading}
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
@@ -995,7 +995,7 @@ export default function AdminPage() {
                   className="form-input" 
                   placeholder="operador1@navbrasil.gov.br, operador2@navbrasil.gov.br"
                   value={operationalEmails}
-                  onChange={e => setOperationalEmails(e.target.value)}
+                  onChange={e => setOperationalEmails(e.target.value.toLowerCase())}
                   disabled={settingsLoading || loading}
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
@@ -1010,7 +1010,7 @@ export default function AdminPage() {
                   style={{ minHeight: "120px", resize: "vertical" }}
                   placeholder="Tahan: tahan.sbiz@navbrasil.gov.br&#10;Wilkson: wilkson.carvalho@navbrasil.gov.br"
                   value={operatorsEmails}
-                  onChange={e => setOperatorsEmails(e.target.value)}
+                  onChange={e => setOperatorsEmails(e.target.value.toLowerCase())}
                   disabled={settingsLoading || loading}
                 />
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>

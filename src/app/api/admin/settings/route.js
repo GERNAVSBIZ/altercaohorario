@@ -51,14 +51,14 @@ export async function POST(req) {
     }
 
     const settings = {
-      airportAdminEmail,
+      airportAdminEmail: airportAdminEmail.toLowerCase(),
       emailSubjectPrefix: emailSubjectPrefix || "SOLICITAÇÃO DE PRORROGAÇÃO DE HORÁRIO - SBIZ",
       customNotes: customNotes || "",
-      adminEmails: adminEmails || "",
-      ccDecisionEmails: ccDecisionEmails || "",
+      adminEmails: (adminEmails || "").toLowerCase(),
+      ccDecisionEmails: (ccDecisionEmails || "").toLowerCase(),
       operatorsList: operatorsList || "",
-      operationalEmails: operationalEmails || "",
-      operatorsEmails: operatorsEmails || "",
+      operationalEmails: (operationalEmails || "").toLowerCase(),
+      operatorsEmails: (operatorsEmails || "").toLowerCase(),
       updatedAt: new Date().toISOString()
     };
 

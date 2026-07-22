@@ -47,6 +47,14 @@ export async function POST(req) {
       );
     }
 
+    // Force emails to lowercase
+    if (company && company.email) {
+      company.email = company.email.toLowerCase();
+    }
+    if (requestor && requestor.billingEmail) {
+      requestor.billingEmail = requestor.billingEmail.toLowerCase();
+    }
+
     // 3. Generate Request ID and Security Confirmation Token
     const requestId = id || (adminDb 
       ? adminDb.collection("requests").doc().id 
