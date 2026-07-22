@@ -1258,20 +1258,19 @@ export default function OperationalPage() {
                                 </div>
                                 <div>
                                   <span style={{ fontSize: "9px", color: "var(--text-dark-muted)", display: "block" }}>Operador (PNA/OEA):</span>
-                                  <input 
-                                    type="text"
-                                    list={`operators-list-${att.id}`}
+                                  <select 
                                     className="form-input"
-                                    style={{ padding: "4px 8px", fontSize: "11.5px", height: "30px" }}
+                                    style={{ padding: "4px 8px", fontSize: "11.5px", height: "30px", backgroundColor: "rgba(0, 0, 0, 0.4)", color: "white" }}
                                     value={att.operator}
                                     onChange={e => handleUpdateAttendance(att.id, "operator", e.target.value)}
-                                    placeholder="Digite ou selecione..."
-                                  />
-                                  <datalist id={`operators-list-${att.id}`}>
+                                  >
+                                    <option value="">Selecione o operador...</option>
                                     {operators.map((op, oIdx) => (
-                                      <option key={oIdx} value={op} />
+                                      <option key={oIdx} value={op}>
+                                        {op}
+                                      </option>
                                     ))}
-                                  </datalist>
+                                  </select>
                                 </div>
                               </div>
                             ))}
