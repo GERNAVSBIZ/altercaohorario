@@ -120,6 +120,21 @@ const getBrasiliaBoundary = (dateObj, hour, minute) => {
   return new Date(`${datePart}T${hourStr}:${minStr}:00-03:00`);
 };
 
+const getBrasiliaHour = (dateObj) => {
+  if (!dateObj || isNaN(dateObj.getTime())) return 0;
+  const brOffsetMs = -3 * 60 * 60 * 1000;
+  const brDate = new Date(dateObj.getTime() + brOffsetMs);
+  return brDate.getUTCHours();
+};
+
+const getFlightDay = (reqStart) => {
+  if (!reqStart || isNaN(reqStart.getTime())) return null;
+  if (getBrasiliaHour(reqStart) >= 22) {
+    return new Date(reqStart.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return reqStart;
+};
+
 // Helper to calculate actual attendance duration, anticipation, and extension based on operator shift boundaries (00:00 - 17:50)
 const renderAttendanceDetails = (req) => {
   const reqStart = new Date(req.period?.start);
@@ -166,8 +181,9 @@ const renderAttendanceDetails = (req) => {
     totalDurationMin += durationMin;
 
     // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
-    const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
-    const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
+    const flightDay = getFlightDay(reqStart);
+    const shiftStartLimit = getBrasiliaBoundary(flightDay, 0, 0);
+    const shiftEndLimit = getBrasiliaBoundary(flightDay, 17, 50);
 
     // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
     let antMin = 0;
@@ -860,8 +876,9 @@ export default function OperationalPage() {
         const durationMin = Math.round((actEnd - actStart) / 60000);
 
         // Shift Limits: 00:00 and 17:50 local time on the day of the flight, in Brasília time (UTC-3)
-        const shiftStartLimit = getBrasiliaBoundary(reqStart, 0, 0);
-        const shiftEndLimit = getBrasiliaBoundary(reqEnd, 17, 50);
+        const flightDay = getFlightDay(reqStart);
+        const shiftStartLimit = getBrasiliaBoundary(flightDay, 0, 0);
+        const shiftEndLimit = getBrasiliaBoundary(flightDay, 17, 50);
 
         // Antecipação (only if actual start is before operator shift start at 00:00 LOCAL)
         let antMin = 0;
