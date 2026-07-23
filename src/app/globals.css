@@ -204,6 +204,12 @@ a:hover {
   gap: 16px;
 }
 
+.form-grid .form-label {
+  min-height: 38px;
+  display: flex;
+  align-items: flex-end;
+}
+
 /* Primary Button Styling */
 .btn {
   display: inline-flex;
