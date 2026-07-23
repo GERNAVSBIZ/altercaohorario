@@ -21,7 +21,8 @@ import {
   RefreshCw,
   ShieldCheck,
   Clock,
-  X
+  X,
+  Megaphone
 } from "lucide-react";
 
 // Helper to format ISO strings to Brasília local datetime-local format YYYY-MM-DDTHH:MM
@@ -64,6 +65,9 @@ export default function DashboardPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Announcements State
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState([]);
+
   // Tabs System & History states
   const [activeTab, setActiveTab] = useState("new_request"); // "new_request" | "my_requests"
   const [userRequests, setUserRequests] = useState([]);
@@ -105,6 +109,36 @@ export default function DashboardPage() {
   const [intentionPouso, setIntentionPouso] = useState(false);
   const [intentionAlternativa, setIntentionAlternativa] = useState(false);
   const [notes, setNotes] = useState("");
+
+  const fetchUnreadAnnouncements = async (userId) => {
+    try {
+      const res = await fetch(`/api/announcements?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setUnreadAnnouncements(data.announcements || []);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching unread announcements:", err);
+    }
+  };
+
+  const handleMarkAnnouncementRead = async (announcementId) => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ announcementId, userId: user.uid })
+      });
+      if (res.ok) {
+        setUnreadAnnouncements(prev => prev.filter(item => item.id !== announcementId));
+      }
+    } catch (err) {
+      console.error("Error marking announcement as read:", err);
+    }
+  };
 
   // Load operator request history
   const fetchUserRequests = async () => {
@@ -164,6 +198,7 @@ export default function DashboardPage() {
       setAuthLoading(false);
       setUser({ email: "developer@sbiz.local", uid: "mock-user-123", isMock: true });
       setIsAdmin(true);
+      fetchUnreadAnnouncements("mock-user-123");
       return;
     }
 
@@ -172,6 +207,7 @@ export default function DashboardPage() {
         router.push("/login");
       } else {
         setUser(currentUser);
+        fetchUnreadAnnouncements(currentUser.uid);
         
         // 1. Initial admin check based on email
         const lowerEmail = (currentUser.email || "").toLowerCase();
@@ -1211,6 +1247,85 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+      {/* Announcements Popup Modal */}
+      {unreadAnnouncements.length > 0 && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(11, 15, 25, 0.85)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          zIndex: 99999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px"
+        }}>
+          <div className="card" style={{
+            maxWidth: "550px",
+            animation: "slideUp 0.4s ease-out",
+            border: "1px solid var(--accent)",
+            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.7)",
+            padding: "32px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px",
+            background: "#121824"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--accent)" }}>
+              <Megaphone size={28} />
+              <h3 style={{ fontSize: "18px", fontWeight: "800", color: "white", margin: 0 }}>
+                COMUNICADO IMPORTANTE
+              </h3>
+            </div>
+            
+            <hr style={{ border: 0, borderTop: "1px solid var(--border-dark)", margin: 0 }} />
+
+            <div>
+              <h4 style={{ fontSize: "15px", fontWeight: "700", color: "white", marginBottom: "12px" }}>
+                {unreadAnnouncements[0].title}
+              </h4>
+              <p style={{
+                fontSize: "13.5px",
+                color: "var(--text-dark-muted)",
+                lineHeight: "1.6",
+                whiteSpace: "pre-line",
+                maxHeight: "250px",
+                overflowY: "auto",
+                paddingRight: "8px"
+              }}>
+                {unreadAnnouncements[0].content}
+              </p>
+            </div>
+
+            <hr style={{ border: 0, borderTop: "1px solid var(--border-dark)", margin: 0 }} />
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => handleMarkAnnouncementRead(unreadAnnouncements[0].id)}
+                className="admin-action-btn btn-approve"
+                style={{
+                  padding: "12px 24px",
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                  height: "40px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 10px rgba(239, 91, 37, 0.2)",
+                  cursor: "pointer"
+                }}
+              >
+                Estou Ciente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
         </div>
       </main>
     </>

@@ -20,7 +20,8 @@ import {
   Check,
   X,
   Download,
-  Trash2
+  Trash2,
+  Megaphone
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -63,6 +64,14 @@ export default function AdminPage() {
   const [delinquentTaxId, setDelinquentTaxId] = useState("");
   const [delinquentCompanyName, setDelinquentCompanyName] = useState("");
   const [delinquentObservations, setDelinquentObservations] = useState("");
+
+  // Announcements State
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementActive, setAnnouncementActive] = useState(true);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState(null);
 
   const fetchDelinquents = async () => {
     setDelinquentsListLoading(true);
@@ -191,9 +200,97 @@ export default function AdminPage() {
     }
   };
 
+  const fetchAnnouncements = async () => {
+    setAnnouncementsLoading(true);
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/admin/announcements");
+      const data = res.ok ? await res.json() : null;
+      if (data && data.success) {
+        setAnnouncements(data.announcements || []);
+      } else {
+        throw new Error(data?.error || "Erro ao carregar comunicados");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Falha ao carregar comunicados: " + err.message);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  const handleSaveAnnouncement = async (e) => {
+    e.preventDefault();
+    setSuccessMsg("");
+    setErrorMsg("");
+    setAnnouncementsLoading(true);
+    try {
+      const res = await fetch("/api/admin/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingAnnouncementId,
+          title: announcementTitle,
+          content: announcementContent,
+          active: announcementActive
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(data.message || "Aviso salvo com sucesso!");
+        setAnnouncementTitle("");
+        setAnnouncementContent("");
+        setAnnouncementActive(true);
+        setEditingAnnouncementId(null);
+        await fetchAnnouncements();
+      } else {
+        throw new Error(data.error || "Erro ao salvar comunicado");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  const handleEditAnnouncement = (ann) => {
+    setAnnouncementTitle(ann.title);
+    setAnnouncementContent(ann.content);
+    setAnnouncementActive(ann.active);
+    setEditingAnnouncementId(ann.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente este comunicado?")) return;
+    setSuccessMsg("");
+    setErrorMsg("");
+    setAnnouncementsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/announcements?id=${id}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(data.message || "Comunicado excluído com sucesso!");
+        await fetchAnnouncements();
+      } else {
+        throw new Error(data.error || "Erro ao excluir comunicado");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "logs") {
       fetchEmailLogs();
+    } else if (activeTab === "announcements") {
+      fetchAnnouncements();
     }
   }, [activeTab]);
 
@@ -639,6 +736,13 @@ export default function AdminPage() {
           >
             <Mail size={16} />
             <span>Logs de Envio</span>
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === "announcements" ? "active" : ""}`}
+            onClick={() => setActiveTab("announcements")}
+          >
+            <Megaphone size={16} />
+            <span>Avisos</span>
           </button>
         </div>
 
@@ -1359,6 +1463,166 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === "announcements" && (
+          <div className="tab-pane animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div className="section-header">
+              <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Megaphone size={20} style={{ color: "var(--accent)" }} />
+                <span>Gerenciador de Avisos e Comunicados</span>
+              </h3>
+              <p style={{ color: "var(--text-dark-muted)", fontSize: "13px" }}>
+                Cadastre avisos importantes que serão exibidos aos operadores de aeronaves como popups obrigatórios ao acessar o painel.
+              </p>
+            </div>
+
+            {/* Save Form Card */}
+            <div className="card" style={{ padding: "20px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--border-dark)" }}>
+              <h4 style={{ color: "var(--text-dark)", marginBottom: "16px", fontSize: "14px", fontWeight: "bold" }}>
+                {editingAnnouncementId ? "Editar Comunicado" : "Novo Comunicado"}
+              </h4>
+              <form onSubmit={handleSaveAnnouncement} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dark-muted)" }}>TÍTULO DO AVISO:</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Manutenção Programada de Pista"
+                    style={{ width: "100%", padding: "10px", fontSize: "13px" }}
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dark-muted)" }}>CONTEÚDO DO AVISO:</label>
+                  <textarea
+                    className="form-input"
+                    placeholder="Digite a mensagem detalhada que o operador irá ler..."
+                    rows={4}
+                    style={{ width: "100%", padding: "10px", fontSize: "13px", resize: "vertical", height: "auto" }}
+                    value={announcementContent}
+                    onChange={(e) => setAnnouncementContent(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="checkbox"
+                    id="announcement_active"
+                    checked={announcementActive}
+                    onChange={(e) => setAnnouncementActive(e.target.checked)}
+                    style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                  />
+                  <label htmlFor="announcement_active" style={{ fontSize: "12px", color: "var(--text-dark)", cursor: "pointer", fontWeight: "500" }}>
+                    Aviso Ativo (será exibido imediatamente aos operadores que não deram ciente)
+                  </label>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                  <button
+                    type="submit"
+                    className="admin-action-btn btn-approve"
+                    style={{ padding: "10px 20px", fontSize: "12.5px" }}
+                    disabled={announcementsLoading}
+                  >
+                    {editingAnnouncementId ? "Salvar Alterações" : "Criar Aviso"}
+                  </button>
+
+                  {editingAnnouncementId && (
+                    <button
+                      type="button"
+                      className="admin-action-btn btn-reject"
+                      style={{ padding: "10px 20px", fontSize: "12.5px" }}
+                      onClick={() => {
+                        setAnnouncementTitle("");
+                        setAnnouncementContent("");
+                        setAnnouncementActive(true);
+                        setEditingAnnouncementId(null);
+                      }}
+                    >
+                      Cancelar Edição
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* List of announcements */}
+            <div className="section-header" style={{ marginTop: "16px" }}>
+              <h4>Avisos Cadastrados</h4>
+            </div>
+
+            {announcementsLoading && announcements.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px", color: "var(--text-dark-muted)" }}>
+                Carregando avisos...
+              </div>
+            ) : announcements.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: "30px", color: "var(--text-dark-muted)", background: "rgba(0, 0, 0, 0.1)" }}>
+                Nenhum comunicado cadastrado até o momento.
+              </div>
+            ) : (
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Título</th>
+                      <th style={{ width: "120px" }}>Criado em</th>
+                      <th style={{ width: "90px" }}>Status</th>
+                      <th style={{ width: "100px", textAlign: "center" }}>Leituras (Ciente)</th>
+                      <th style={{ width: "120px", textAlign: "center" }}>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {announcements.map((ann) => (
+                      <tr key={ann.id}>
+                        <td>
+                          <div style={{ fontWeight: "600", fontSize: "13px" }}>{ann.title}</div>
+                          <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", whiteSpace: "pre-line" }}>
+                            {ann.content.length > 120 ? ann.content.substring(0, 120) + "..." : ann.content}
+                          </div>
+                        </td>
+                        <td style={{ fontSize: "12px" }}>
+                          {new Date(ann.createdAt).toLocaleDateString("pt-BR")}
+                        </td>
+                        <td>
+                          <span className={`badge ${ann.active ? "approved" : "pending"}`} style={{ fontSize: "10px", padding: "3px 6px" }}>
+                            {ann.active ? "ATIVO" : "INATIVO"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center", fontWeight: "700" }}>
+                          {ann.readBy ? ann.readBy.length : 0}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <div style={{ display: "inline-flex", gap: "6px" }}>
+                            <button
+                              onClick={() => handleEditAnnouncement(ann)}
+                              className="admin-action-btn btn-approve"
+                              style={{ padding: "4px 8px", fontSize: "11px", height: "auto" }}
+                              title="Editar Comunicado"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAnnouncement(ann.id)}
+                              className="admin-action-btn btn-reject"
+                              style={{ padding: "4px 8px", fontSize: "11px", height: "auto" }}
+                              title="Excluir Comunicado"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </main>
