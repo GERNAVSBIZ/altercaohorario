@@ -26,7 +26,6 @@ export async function GET(req) {
     // This is safe since the number of active announcements is very small (usually 1 or 2).
     const snapshot = await adminDb.collection("announcements")
       .where("active", "==", true)
-      .orderBy("createdAt", "desc")
       .get();
 
     const announcements = [];
@@ -37,6 +36,9 @@ export async function GET(req) {
         announcements.push({ id: doc.id, ...data });
       }
     });
+
+    // Sort in memory by createdAt desc to avoid requiring a composite index in Firestore
+    announcements.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return NextResponse.json({ success: true, announcements });
   } catch (error) {
