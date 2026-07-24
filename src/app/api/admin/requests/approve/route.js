@@ -3,11 +3,18 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req) {
   try {
-    const { id, decision } = await req.json();
+    const { id, decision, justification } = await req.json();
 
     if (!id || !["authorized", "not_authorized", "cancelled"].includes(decision)) {
       return NextResponse.json(
         { error: "Parâmetros inválidos fornecidos para a aprovação." },
+        { status: 400 }
+      );
+    }
+
+    if (decision === "not_authorized" && (!justification || !justification.trim())) {
+      return NextResponse.json(
+        { error: "A justificativa é obrigatória para recusar a solicitação." },
         { status: 400 }
       );
     }
@@ -29,6 +36,7 @@ export async function POST(req) {
 
       const updateData = {
         approvalStatus: decision,
+        justification: justification || null
       };
       if (decision === "authorized") {
         updateData.authorizedAt = authorizedAt;
@@ -61,9 +69,10 @@ export async function POST(req) {
             name: requestData.requestor?.name || "Operador",
             requestData,
             decision,
-            ccEmails
+            ccEmails,
+            justification
           });
-          console.log(`[EMAIL] E-mail de decisão enviado com sucesso para ${requestData.company.email} com cópia para: ${ccEmails}`);
+          console.log(`[EMAIL] E-mail de decisão enviado com sucesso para ${requestData.company.email} com cópia para: ${ccEmails} e justificativa: ${justification}`);
         }
       } catch (emailErr) {
         console.error("Falha ao enviar e-mail de decisão para o operador:", emailErr);

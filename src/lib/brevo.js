@@ -477,7 +477,7 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
 /**
  * Sends a notification email to the operator when the admin decides (approves or rejects) a request.
  */
-export async function sendOperatorDecisionEmail({ email, name, requestData, decision, ccEmails }) {
+export async function sendOperatorDecisionEmail({ email, name, requestData, decision, ccEmails, justification }) {
   const idShort = requestData.id.slice(-6).toUpperCase();
   const isApproved = decision === "authorized";
   const isCancelled = decision === "cancelled";
@@ -525,6 +525,13 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
         ⚠️ ATENÇÃO: Esta autorização restringe-se exclusivamente à NAV Brasil, sendo necessária também a coordenação com a empresa Motiva Aeroportos.<br/><br/>
         📞 CONTATOS: 99-99156 8254<br/>
         ✉️ EMAILS: apoc.imp@motiva.com.br, operacoes.imp@motiva.com.br
+      </div>
+      ` : ''}
+
+      ${justification ? `
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #64748b; padding: 15px; margin: 20px 0; border-radius: 4px; color: #334155; font-size: 13.5px; line-height: 1.5;">
+        <strong>Justificativa/Observação da Gerência:</strong><br/>
+        <span style="font-style: italic;">"${justification}"</span>
       </div>
       ` : ''}
 

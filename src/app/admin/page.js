@@ -419,6 +419,21 @@ export default function AdminPage() {
       }
     }
 
+    let justification = "";
+    if (decision === "not_authorized") {
+      const input = window.prompt("Justificativa da RECUSA (OBRIGATÓRIA):");
+      if (input === null) return; // User cancelled
+      if (!input.trim()) {
+        alert("A justificativa é obrigatória para recusar a solicitação.");
+        return;
+      }
+      justification = input.trim();
+    } else if (decision === "authorized") {
+      const input = window.prompt("Mensagem complementar / Observações (OPCIONAL):");
+      if (input === null) return; // User cancelled
+      justification = input.trim();
+    }
+
     setSuccessMsg("");
     setErrorMsg("");
     setLoading(true);
@@ -431,6 +446,7 @@ export default function AdminPage() {
             return {
               ...req,
               approvalStatus: decision,
+              justification: justification || null,
               ...(decision === "authorized" ? { authorizedAt: new Date().toISOString() } : {}),
               ...(decision === "cancelled" ? { cancelledAt: new Date().toISOString() } : {})
             };
@@ -448,7 +464,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/requests/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, decision })
+        body: JSON.stringify({ id, decision, justification })
       });
 
       const resData = await response.json();
