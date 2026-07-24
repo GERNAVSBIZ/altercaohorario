@@ -522,7 +522,9 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
 
       ${isApproved ? `
       <div style="background-color: #fff9db; border: 1px solid #ffe066; border-left: 5px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; color: #664d03; font-size: 13.5px; font-weight: bold; line-height: 1.5;">
-        ⚠️ ATENÇÃO: Esta autorização restringe-se exclusivamente à NAV Brasil, sendo necessária também a coordenação com a empresa Motiva Aeroportos.
+        ⚠️ ATENÇÃO: Esta autorização restringe-se exclusivamente à NAV Brasil, sendo necessária também a coordenação com a empresa Motiva Aeroportos.<br/><br/>
+        📞 CONTATOS: 99-99156 8254<br/>
+        ✉️ EMAILS: apoc.imp@motiva.com.br, operacoes.imp@motiva.com.br
       </div>
       ` : ''}
 
