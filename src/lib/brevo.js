@@ -520,6 +520,12 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
         </p>
       </div>
 
+      ${isApproved ? `
+      <div style="background-color: #fff9db; border: 1px solid #ffe066; border-left: 5px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; color: #664d03; font-size: 13.5px; font-weight: bold; line-height: 1.5;">
+        ⚠️ ATENÇÃO: Esta autorização restringe-se exclusivamente à NAV Brasil, sendo necessária também a coordenação com a empresa Motiva Aeroportos.
+      </div>
+      ` : ''}
+
       <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Resumo dos Dados</h3>
       <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
         <tr>
