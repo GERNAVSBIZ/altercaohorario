@@ -106,7 +106,9 @@ import {
   Plane,
   Building2,
   CalendarDays,
-  Download
+  Download,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 // Helper to construct a boundary Date strictly in Brasília time (UTC-3)
@@ -381,6 +383,7 @@ export default function OperationalPage() {
   const [showReport, setShowReport] = useState(true);
   const [selectedYear, setSelectedYear] = useState("Todos");
   const [executionFilter, setExecutionFilter] = useState("Todos"); // "Todos" | "futuras" | "finalizadas"
+  const [viewMode, setViewMode] = useState("simplified"); // "simplified" | "full"
 
   // Custom Date/Time picker popover state
   const [activePicker, setActivePicker] = useState(null); // { attendanceId, field: "start" | "end" }
@@ -1245,6 +1248,26 @@ export default function OperationalPage() {
             <FileText size={16} style={{ color: showReport ? "var(--accent)" : "inherit" }} />
             <span>{showReport ? "Ocultar Relatório" : "Ver Relatório"}</span>
           </button>
+
+          {/* View Mode toggle button */}
+          <button 
+            onClick={() => setViewMode(viewMode === "simplified" ? "full" : "simplified")}
+            className="admin-action-btn"
+            style={{ 
+              height: "40px", 
+              padding: "0 16px", 
+              fontSize: "13px", 
+              display: "inline-flex", 
+              alignItems: "center", 
+              gap: "6px",
+              borderColor: viewMode === "full" ? "var(--accent)" : "rgba(255,255,255,0.15)",
+              color: viewMode === "full" ? "white" : "var(--text-dark-muted)"
+            }}
+            title="Expandir ou recolher colunas secundárias para melhor encaixe na tela"
+          >
+            {viewMode === "full" ? <EyeOff size={16} style={{ color: "var(--accent)" }} /> : <Eye size={16} />}
+            <span>{viewMode === "full" ? "Visualização Simplificada" : "Mostrar Todas Colunas"}</span>
+          </button>
         </div>
 
         {/* Report Card */}
@@ -1318,18 +1341,22 @@ export default function OperationalPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th style={{ width: "90px" }}>ID</th>
+                  {viewMode === "full" && <th style={{ width: "90px" }}>ID</th>}
                   <th style={{ minWidth: "150px" }}>Empresa Solicitante</th>
                   <th style={{ width: "110px" }}>Matrícula</th>
                   <th style={{ minWidth: "180px" }}>Período Alteração</th>
                   <th style={{ minWidth: "180px" }}>Atendimento PNA/OEA</th>
                   <th style={{ minWidth: "180px" }}>Prorrogação / Antecipação</th>
                   <th style={{ minWidth: "150px" }}>Operador (PNA/OEA)</th>
-                  <th style={{ width: "120px" }}>Cobrança Realizada</th>
-                  <th style={{ width: "130px" }}>ID Fatura</th>
-                  <th style={{ width: "135px" }}>Envio NACA</th>
-                  <th style={{ minWidth: "180px" }}>Observações</th>
-                  <th style={{ width: "90px" }}>PDF</th>
+                  {viewMode === "full" && (
+                    <>
+                      <th style={{ width: "120px" }}>Cobrança Realizada</th>
+                      <th style={{ width: "130px" }}>ID Fatura</th>
+                      <th style={{ width: "135px" }}>Envio NACA</th>
+                      <th style={{ minWidth: "180px" }}>Observações</th>
+                      <th style={{ width: "90px" }}>PDF</th>
+                    </>
+                  )}
                   <th style={{ width: "100px" }}>Ações</th>
                 </tr>
               </thead>
@@ -1343,9 +1370,11 @@ export default function OperationalPage() {
                       key={req.id} 
                       style={isFuture ? { backgroundColor: "rgba(245, 158, 11, 0.08)" } : null}
                     >
-                      <td style={{ fontFamily: "monospace", fontWeight: "bold", color: "var(--text-dark-muted)" }}>
-                        #{req.id.slice(-6).toUpperCase()}
-                      </td>
+                      {viewMode === "full" && (
+                        <td style={{ fontFamily: "monospace", fontWeight: "bold", color: "var(--text-dark-muted)" }}>
+                          #{req.id.slice(-6).toUpperCase()}
+                        </td>
+                      )}
                       <td>
                         <div style={{ fontWeight: 600, color: "white" }}>{req.company?.name}</div>
                         <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "2px" }}>
@@ -1666,116 +1695,120 @@ export default function OperationalPage() {
                         )}
                       </td>
 
-                      {/* Cobrança Realizada */}
-                      <td>
-                        {isEditing ? (
-                          <select 
-                            className="form-input"
-                            style={{ padding: "8px", fontSize: "12.5px", height: "38px" }}
-                            value={editFields.opBillingStatus}
-                            onChange={e => setEditFields({ ...editFields, opBillingStatus: e.target.value })}
-                          >
-                            <option value="Sim">Sim</option>
-                            <option value="Não">Não</option>
-                            <option value="Isento">Isento</option>
-                          </select>
-                        ) : (
-                          <span className={`badge ${
-                            req.opBillingStatus === "Sim" ? "badge-success" : 
-                            req.opBillingStatus === "Isento" ? "badge-info" : "badge-warning"
-                          }`}>
-                            {req.opBillingStatus || "Não"}
-                          </span>
-                        )}
-                      </td>
+                      {viewMode === "full" && (
+                        <>
+                          {/* Cobrança Realizada */}
+                          <td>
+                            {isEditing ? (
+                              <select 
+                                className="form-input"
+                                style={{ padding: "8px", fontSize: "12.5px", height: "38px" }}
+                                value={editFields.opBillingStatus}
+                                onChange={e => setEditFields({ ...editFields, opBillingStatus: e.target.value })}
+                              >
+                                <option value="Sim">Sim</option>
+                                <option value="Não">Não</option>
+                                <option value="Isento">Isento</option>
+                              </select>
+                            ) : (
+                              <span className={`badge ${
+                                req.opBillingStatus === "Sim" ? "badge-success" : 
+                                req.opBillingStatus === "Isento" ? "badge-info" : "badge-warning"
+                              }`}>
+                                {req.opBillingStatus || "Não"}
+                              </span>
+                            )}
+                          </td>
 
-                      {/* ID Fatura */}
-                      <td>
-                        {isEditing ? (
-                          <input 
-                            type="text"
-                            className="form-input"
-                            style={{ padding: "8px", fontSize: "12.5px" }}
-                            placeholder="Nº Fatura"
-                            value={editFields.opInvoiceId}
-                            onChange={e => setEditFields({ ...editFields, opInvoiceId: e.target.value })}
-                          />
-                        ) : (
-                          <span>{req.opInvoiceId || <span style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Pendente</span>}</span>
-                        )}
-                      </td>
+                          {/* ID Fatura */}
+                          <td>
+                            {isEditing ? (
+                              <input 
+                                type="text"
+                                className="form-input"
+                                style={{ padding: "8px", fontSize: "12.5px" }}
+                                placeholder="Nº Fatura"
+                                value={editFields.opInvoiceId}
+                                onChange={e => setEditFields({ ...editFields, opInvoiceId: e.target.value })}
+                              />
+                            ) : (
+                              <span>{req.opInvoiceId || <span style={{ color: "var(--text-dark-muted)", fontStyle: "italic" }}>Pendente</span>}</span>
+                            )}
+                          </td>
 
-                      {/* Envio NACA */}
-                      <td>
-                        {isEditing ? (
-                          <select 
-                            className="form-input"
-                            style={{ padding: "8px", fontSize: "12.5px", height: "38px" }}
-                            value={editFields.opNacaStatus}
-                            onChange={e => setEditFields({ ...editFields, opNacaStatus: e.target.value })}
-                          >
-                            <option value="Pendente">Pendente</option>
-                            <option value="Enviado">Enviado</option>
-                            <option value="Não Aplicável">Não Aplicável</option>
-                          </select>
-                        ) : (
-                          <span className={`badge ${
-                            req.opNacaStatus === "Enviado" ? "badge-success" : 
-                            req.opNacaStatus === "Não Aplicável" ? "badge-info" : "badge-warning"
-                          }`}>
-                            {req.opNacaStatus || "Pendente"}
-                          </span>
-                        )}
-                      </td>
+                          {/* Envio NACA */}
+                          <td>
+                            {isEditing ? (
+                              <select 
+                                className="form-input"
+                                style={{ padding: "8px", fontSize: "12.5px", height: "38px" }}
+                                value={editFields.opNacaStatus}
+                                onChange={e => setEditFields({ ...editFields, opNacaStatus: e.target.value })}
+                              >
+                                <option value="Pendente">Pendente</option>
+                                <option value="Enviado">Enviado</option>
+                                <option value="Não Aplicável">Não Aplicável</option>
+                              </select>
+                            ) : (
+                              <span className={`badge ${
+                                req.opNacaStatus === "Enviado" ? "badge-success" : 
+                                req.opNacaStatus === "Não Aplicável" ? "badge-info" : "badge-warning"
+                              }`}>
+                                {req.opNacaStatus || "Pendente"}
+                              </span>
+                            )}
+                          </td>
 
-                      {/* Observações */}
-                      <td>
-                        {isEditing ? (
-                          <textarea 
-                            className="form-input"
-                            style={{ padding: "8px", fontSize: "12px", minHeight: "60px", resize: "vertical" }}
-                            placeholder="Observações operacionais..."
-                            value={editFields.opNotes}
-                            onChange={e => setEditFields({ ...editFields, opNotes: e.target.value })}
-                          />
-                        ) : (
-                          <span style={{ fontSize: "12px", color: req.opNotes ? "var(--text-dark)" : "var(--text-dark-muted)" }}>
-                            {req.opNotes || <span style={{ fontStyle: "italic" }}>Sem observações</span>}
-                          </span>
-                        )}
-                      </td>
+                          {/* Observações */}
+                          <td>
+                            {isEditing ? (
+                              <textarea 
+                                className="form-input"
+                                style={{ padding: "8px", fontSize: "12px", minHeight: "60px", resize: "vertical" }}
+                                placeholder="Observações operacionais..."
+                                value={editFields.opNotes}
+                                onChange={e => setEditFields({ ...editFields, opNotes: e.target.value })}
+                              />
+                            ) : (
+                              <span style={{ fontSize: "12px", color: req.opNotes ? "var(--text-dark)" : "var(--text-dark-muted)" }}>
+                                {req.opNotes || <span style={{ fontStyle: "italic" }}>Sem observações</span>}
+                              </span>
+                            )}
+                          </td>
 
-                      {/* PDF */}
-                      <td>
-                        {req.status === "confirmed" && req.approvalStatus === "authorized" ? (
-                          <a 
-                            href={`/api/requests/pdf?id=${req.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="admin-action-btn"
-                            style={{ 
-                              padding: "6px 10px", 
-                              fontSize: "11px", 
-                              gap: "4px", 
-                              backgroundColor: "rgba(239, 91, 37, 0.15)", 
-                              borderColor: "rgba(239, 91, 37, 0.4)", 
-                              color: "var(--text-dark)",
-                              textDecoration: "none",
-                              display: "inline-flex",
-                              alignItems: "center"
-                            }}
-                            title="Baixar PDF Oficial"
-                            download
-                          >
-                            <Download size={12} style={{ color: "var(--accent)" }} />
-                            <span>PDF</span>
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
-                            {req.status !== "confirmed" ? "Rascunho" : "Pendente/Recusado"}
-                          </span>
-                        )}
-                      </td>
+                          {/* PDF */}
+                          <td>
+                            {req.status === "confirmed" && req.approvalStatus === "authorized" ? (
+                              <a 
+                                href={`/api/requests/pdf?id=${req.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="admin-action-btn"
+                                style={{ 
+                                  padding: "6px 10px", 
+                                  fontSize: "11px", 
+                                  gap: "4px", 
+                                  backgroundColor: "rgba(239, 91, 37, 0.15)", 
+                                  borderColor: "rgba(239, 91, 37, 0.4)", 
+                                  color: "var(--text-dark)",
+                                  textDecoration: "none",
+                                  display: "inline-flex",
+                                  alignItems: "center"
+                                }}
+                                title="Baixar PDF Oficial"
+                                download
+                              >
+                                <Download size={12} style={{ color: "var(--accent)" }} />
+                                <span>PDF</span>
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+                                {req.status !== "confirmed" ? "Rascunho" : "Pendente/Recusado"}
+                              </span>
+                            )}
+                          </td>
+                        </>
+                      )}
 
                       {/* Ações */}
                       <td>
