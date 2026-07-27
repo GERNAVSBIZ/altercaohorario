@@ -538,6 +538,10 @@ a:hover {
   color: #3b82f6;
 }
 
+.metric-card.cancelled .metric-value {
+  color: #e8590c;
+}
+
 .metric-label {
   font-size: 11px;
   text-transform: uppercase;

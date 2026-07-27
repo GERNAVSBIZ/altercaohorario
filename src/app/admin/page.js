@@ -584,6 +584,7 @@ export default function AdminPage() {
   const confirmedCount = requests.filter(r => r.status === "confirmed").length;
   const pendingCount = requests.filter(r => r.status === "pending_confirmation").length;
   const authorizedCount = requests.filter(r => r.approvalStatus === "authorized").length;
+  const cancelledCount = requests.filter(r => r.approvalStatus === "cancelled" || r.status === "cancelled").length;
 
   // Filter requests
   const filteredRequests = requests.filter(r => {
@@ -785,6 +786,10 @@ export default function AdminPage() {
               <div className="metric-card authorized">
                 <div className="metric-value">{authorizedCount}</div>
                 <div className="metric-label">Autorizados</div>
+              </div>
+              <div className="metric-card cancelled">
+                <div className="metric-value">{cancelledCount}</div>
+                <div className="metric-label">Cancelados</div>
               </div>
             </div>
 
