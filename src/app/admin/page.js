@@ -58,6 +58,8 @@ export default function AdminPage() {
   const [operatorsList, setOperatorsList] = useState("");
   const [operationalEmails, setOperationalEmails] = useState("");
   const [operatorsEmails, setOperatorsEmails] = useState("");
+  const [stationStartLocal, setStationStartLocal] = useState("00:15");
+  const [stationEndLocal, setStationEndLocal] = useState("17:45");
 
   // Delinquents State
   const [delinquentAircrafts, setDelinquentAircrafts] = useState([]);
@@ -119,6 +121,8 @@ export default function AdminPage() {
       setOperatorsList(s.operatorsList || "");
       setOperationalEmails(s.operationalEmails || "");
       setOperatorsEmails(s.operatorsEmails || "");
+      setStationStartLocal(s.stationStartLocal || "00:15");
+      setStationEndLocal(s.stationEndLocal || "17:45");
       
       // 3. Fetch delinquents
       await fetchDelinquents();
@@ -396,7 +400,9 @@ export default function AdminPage() {
           ccDecisionEmails,
           operatorsList,
           operationalEmails,
-          operatorsEmails
+          operatorsEmails,
+          stationStartLocal,
+          stationEndLocal
         })
       });
 
@@ -1173,6 +1179,40 @@ export default function AdminPage() {
                 <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
                   Associe cada operador ao seu respectivo e-mail no formato <code>Nome: email</code> (um por linha). Ex: <code>Tahan: tahan.sbiz@navbrasil.gov.br</code>. Quando houver uma alteração de horário, o operador do respectivo turno receberá uma notificação por e-mail.
                 </span>
+              </div>
+
+              <h3 style={{ color: "white", fontSize: "14px", marginTop: "24px", marginBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "8px" }}>
+                Funcionamento da Estação
+              </h3>
+              <div className="form-grid" style={{ marginBottom: "20px" }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Início do Funcionamento (LOCAL Brasília)</label>
+                  <input 
+                    type="time" 
+                    className="form-input" 
+                    value={stationStartLocal}
+                    onChange={e => setStationStartLocal(e.target.value)}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                  <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                    Horário em que a estação inicia o funcionamento operacional padrão (Ex: 00:15).
+                  </span>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Fim do Funcionamento (LOCAL Brasília)</label>
+                  <input 
+                    type="time" 
+                    className="form-input" 
+                    value={stationEndLocal}
+                    onChange={e => setStationEndLocal(e.target.value)}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                  <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
+                    Horário em que a estação encerra o funcionamento operacional padrão (Ex: 17:45).
+                  </span>
+                </div>
               </div>
 
               <button 

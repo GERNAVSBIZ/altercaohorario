@@ -57,6 +57,52 @@ const isDeadlinePassed = (periodStartIso) => {
   return now.getTime() > deadline.getTime();
 };
 
+// Checks if the requested period overlaps with the operational hours of the station
+const checkOperationalHoursOverlap = (startStr, endStr, startLimit, endLimit) => {
+  if (!startStr || !endStr || !startLimit || !endLimit) return null;
+
+  const startDt = parseBrasiliaDate(startStr);
+  const endDt = parseBrasiliaDate(endStr);
+  
+  if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return null;
+
+  // Convert time strings (HH:MM) to hours and minutes
+  const [limitStartHour, limitStartMin] = startLimit.split(":").map(Number);
+  const [limitEndHour, limitEndMin] = endLimit.split(":").map(Number);
+
+  // Loop through each calendar day from startDt to endDt
+  let currentDay = new Date(startDt.getFullYear(), startDt.getMonth(), startDt.getDate());
+  const endDay = new Date(endDt.getFullYear(), endDt.getMonth(), endDt.getDate());
+
+  while (currentDay <= endDay) {
+    // For currentDay, construct the operational window in Brasilia time
+    const y = currentDay.getFullYear();
+    const m = String(currentDay.getMonth() + 1).padStart(2, "0");
+    const d = String(currentDay.getDate()).padStart(2, "0");
+    
+    // Construct local Date objects for operational hours on this day
+    const opStart = new Date(`${y}-${m}-${d}T${String(limitStartHour).padStart(2, "0")}:${String(limitStartMin).padStart(2, "0")}:00-03:00`);
+    const opEnd = new Date(`${y}-${m}-${d}T${String(limitEndHour).padStart(2, "0")}:${String(limitEndMin).padStart(2, "0")}:00-03:00`);
+
+    // Check if [startDt, endDt] overlaps with [opStart, opEnd]
+    const overlapStart = new Date(Math.max(startDt.getTime(), opStart.getTime()));
+    const overlapEnd = new Date(Math.min(endDt.getTime(), opEnd.getTime()));
+
+    if (overlapStart < overlapEnd) {
+      return {
+        start: overlapStart,
+        end: overlapEnd,
+        dateStr: currentDay.toLocaleDateString("pt-BR")
+      };
+    }
+
+    // Move to next day
+    currentDay.setDate(currentDay.getDate() + 1);
+  }
+
+  return null; // No overlap!
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -67,6 +113,10 @@ export default function DashboardPage() {
 
   // Announcements State
   const [unreadAnnouncements, setUnreadAnnouncements] = useState([]);
+
+  // Station hours states
+  const [stationStartLocal, setStationStartLocal] = useState("00:15");
+  const [stationEndLocal, setStationEndLocal] = useState("17:45");
 
   // Tabs System & History states
   const [activeTab, setActiveTab] = useState("new_request"); // "new_request" | "my_requests"
@@ -242,12 +292,15 @@ export default function DashboardPage() {
               setCompanyEmail(currentUser.email || "");
             }
 
-            // Check config settings for admin emails by querying the server-side settings API
-            if (!userIsAdmin) {
+            // Check config settings and station hours
+            try {
               const settingsRes = await fetch("/api/admin/settings");
               if (settingsRes.ok) {
                 const settingsData = await settingsRes.json();
-                const allowedAdminsStr = settingsData.settings?.adminEmails || "";
+                const settings = settingsData.settings || {};
+                
+                // Admin check
+                const allowedAdminsStr = settings.adminEmails || "";
                 const allowedAdmins = allowedAdminsStr
                   .split(/[,;]/)
                   .map(e => e.trim().toLowerCase())
@@ -255,7 +308,13 @@ export default function DashboardPage() {
                 if (allowedAdmins.includes(lowerEmail)) {
                   userIsAdmin = true;
                 }
+
+                // Load station hours
+                setStationStartLocal(settings.stationStartLocal || "00:15");
+                setStationEndLocal(settings.stationEndLocal || "17:45");
               }
+            } catch (settingsErr) {
+              console.error("Error loading settings in dashboard:", settingsErr);
             }
           } catch (err) {
             console.error("Error loading profile:", err);
@@ -434,6 +493,19 @@ export default function DashboardPage() {
 
     if (parseBrasiliaDate(periodStart) >= parseBrasiliaDate(periodEnd)) {
       setErrorMsg("A data/hora de término deve ser após a data/hora de início.");
+      setOpenSections(prev => ({ ...prev, period: true }));
+      setSubmitLoading(false);
+      return;
+    }
+
+    // Validate station operational hours overlap
+    const overlap = checkOperationalHoursOverlap(periodStart, periodEnd, stationStartLocal, stationEndLocal);
+    if (overlap) {
+      setErrorMsg(
+        `O horário solicitado coincide com o funcionamento padrão da estação (${stationStartLocal} às ${stationEndLocal}). ` +
+        `Conflito detectado no dia ${overlap.dateStr} das ${overlap.start.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'})} às ${overlap.end.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'})}. ` +
+        `Por favor, solicite apenas o período fora do horário de funcionamento.`
+      );
       setOpenSections(prev => ({ ...prev, period: true }));
       setSubmitLoading(false);
       return;
@@ -960,6 +1032,18 @@ export default function DashboardPage() {
 
                 {openSections.period && (
                   <div className="accordion-content">
+                    <div style={{
+                      backgroundColor: "rgba(245, 158, 11, 0.06)",
+                      border: "1.5px solid rgba(245, 158, 11, 0.2)",
+                      borderRadius: "6px",
+                      padding: "12px 16px",
+                      marginBottom: "16px",
+                      fontSize: "13px",
+                      color: "#f59e0b",
+                      lineHeight: "1.4"
+                    }}>
+                      ⚠️ <strong>Atenção:</strong> O horário de funcionamento operacional padrão da estação é das <strong>{stationStartLocal}</strong> às <strong>{stationEndLocal}</strong> (Horário de Brasília). Solicitações de prorrogação ou antecipação só são permitidas <strong>fora</strong> deste intervalo.
+                    </div>
                     <div className="form-group" style={{ marginBottom: "16px" }}>
                       <label className="form-label" style={{ display: "block", marginBottom: "8px" }}>Intenção de Voo (Selecione todas que se aplicam)</label>
                       <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginTop: "6px" }}>

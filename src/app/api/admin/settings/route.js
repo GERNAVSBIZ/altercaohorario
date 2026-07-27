@@ -11,7 +11,9 @@ export async function GET(req) {
       ccDecisionEmails: "",
       operatorsList: "Adriano Matos, João Silva, Marcos Souza",
       operationalEmails: "",
-      operatorsEmails: ""
+      operatorsEmails: "",
+      stationStartLocal: "00:15",
+      stationEndLocal: "17:45"
     };
 
     if (adminDb) {
@@ -42,7 +44,19 @@ export async function POST(req) {
   try {
     const data = await req.json();
 
-    const { airportAdminEmail, emailSubjectPrefix, customNotes, adminEmails, ccDecisionEmails, operatorsList, operationalEmails, operatorsEmails } = data;
+    const { 
+      airportAdminEmail, 
+      emailSubjectPrefix, 
+      customNotes, 
+      adminEmails, 
+      ccDecisionEmails, 
+      operatorsList, 
+      operationalEmails, 
+      operatorsEmails,
+      stationStartLocal,
+      stationEndLocal
+    } = data;
+    
     if (!airportAdminEmail) {
       return NextResponse.json(
         { error: "O e-mail administrativo é obrigatório." },
@@ -59,6 +73,8 @@ export async function POST(req) {
       operatorsList: operatorsList || "",
       operationalEmails: (operationalEmails || "").toLowerCase(),
       operatorsEmails: (operatorsEmails || "").toLowerCase(),
+      stationStartLocal: stationStartLocal || "00:15",
+      stationEndLocal: stationEndLocal || "17:45",
       updatedAt: new Date().toISOString()
     };
 
