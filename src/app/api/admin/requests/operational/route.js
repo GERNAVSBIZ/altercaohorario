@@ -15,8 +15,8 @@ export async function GET(req) {
         requests.push({ id: doc.id, ...doc.data() });
       });
 
-      // Sort by createdAt descending locally since composite index might not exist yet
-      requests.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      // Sort by period.start descending locally since composite index might not exist yet
+      requests.sort((a, b) => new Date(b.period?.start || 0) - new Date(a.period?.start || 0));
 
       return NextResponse.json({ success: true, requests });
     } else {
@@ -30,6 +30,7 @@ export async function GET(req) {
       const authorizedMocks = global.mockRequests.filter(
         (r) => r.status === "confirmed" && r.approvalStatus === "authorized"
       );
+      authorizedMocks.sort((a, b) => new Date(b.period?.start || 0) - new Date(a.period?.start || 0));
       
       return NextResponse.json({ success: true, requests: authorizedMocks, mock: true });
     }
