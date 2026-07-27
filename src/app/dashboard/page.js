@@ -1042,7 +1042,7 @@ export default function DashboardPage() {
                       color: "#f59e0b",
                       lineHeight: "1.4"
                     }}>
-                      ⚠️ <strong>Atenção:</strong> O horário de funcionamento operacional padrão da estação é das <strong>{stationStartLocal}</strong> às <strong>{stationEndLocal}</strong> (Horário de Brasília). Solicitações de prorrogação ou antecipação só são permitidas <strong>fora</strong> deste intervalo.
+                      ⚠️ Horário operacional da Rádio Imperatriz: das <strong>{stationStartLocal}</strong> às <strong>{stationEndLocal}</strong> (Brasília). Prorrogações ou antecipações só fora deste período.
                     </div>
                     <div className="form-group" style={{ marginBottom: "16px" }}>
                       <label className="form-label" style={{ display: "block", marginBottom: "8px" }}>Intenção de Voo (Selecione todas que se aplicam)</label>
