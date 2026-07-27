@@ -21,7 +21,9 @@ import {
   X,
   Download,
   Trash2,
-  Megaphone
+  Megaphone,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -39,6 +41,7 @@ export default function AdminPage() {
   const [requests, setRequests] = useState([]);
   const [isMock, setIsMock] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState("simplified"); // "simplified" | "full"
 
   // Email logs state
   const [emailLogs, setEmailLogs] = useState([]);
@@ -785,20 +788,39 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Search filter input */}
-            <div className="form-group" style={{ marginBottom: "16px" }}>
-              <div style={{ position: "relative" }}>
+            {/* Search filter input & Toggle Column button */}
+            <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
+              <div style={{ flex: 1, minWidth: "250px", position: "relative" }}>
                 <Search size={16} style={{ position: "absolute", left: "14px", top: "15px", color: "var(--text-dark-muted)" }} />
                 <input 
                   type="text" 
                   className="form-input" 
-                  style={{ paddingLeft: "42px" }}
+                  style={{ paddingLeft: "42px", height: "46px" }}
                   placeholder="Pesquisar por ID, empresa, solicitante ou aeronave..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   disabled={loading}
                 />
               </div>
+              <button 
+                onClick={() => setViewMode(viewMode === "simplified" ? "full" : "simplified")}
+                className="admin-action-btn"
+                style={{ 
+                  height: "46px", 
+                  padding: "0 16px", 
+                  fontSize: "13px", 
+                  display: "inline-flex", 
+                  alignItems: "center", 
+                  gap: "6px",
+                  borderColor: viewMode === "full" ? "var(--accent)" : "rgba(255,255,255,0.15)",
+                  color: viewMode === "full" ? "white" : "var(--text-dark-muted)",
+                  background: viewMode === "full" ? "rgba(239, 91, 37, 0.15)" : "transparent"
+                }}
+                title="Expandir ou recolher colunas secundárias para melhor encaixe na tela"
+              >
+                {viewMode === "full" ? <EyeOff size={16} style={{ color: "var(--accent)" }} /> : <Eye size={16} />}
+                <span>{viewMode === "full" ? "Visualização Simplificada" : "Mostrar Todas Colunas"}</span>
+              </button>
             </div>
 
             {/* Requests Table */}
@@ -816,40 +838,44 @@ export default function AdminPage() {
                 </p>
               </div>
             ) : (
-              <div className="admin-table-container" style={{ maxHeight: "340px", overflowY: "auto" }}>
+              <div className="admin-table-container" style={{ maxHeight: "600px", overflowY: "auto" }}>
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      {viewMode === "full" && <th>ID</th>}
                       <th>Empresa / Operador</th>
-                      <th>Solicitante</th>
+                      {viewMode === "full" && <th>Solicitante</th>}
                       <th>Aeronave</th>
                       <th>Período Solicitado</th>
                       <th>Operador</th>
                       <th>Autorização</th>
-                      <th>Assinatura / IP</th>
-                      <th>PDF</th>
+                      {viewMode === "full" && <th>Assinatura / IP</th>}
+                      {viewMode === "full" && <th>PDF</th>}
                       <th>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRequests.map((req) => (
                       <tr key={req.id}>
-                        <td style={{ fontFamily: "monospace", fontWeight: "bold", color: "var(--text-dark-muted)" }}>
-                          #{req.id.slice(-6).toUpperCase()}
-                        </td>
+                        {viewMode === "full" && (
+                          <td style={{ fontFamily: "monospace", fontWeight: "bold", color: "var(--text-dark-muted)" }}>
+                            #{req.id.slice(-6).toUpperCase()}
+                          </td>
+                        )}
                         <td>
                           <div style={{ fontWeight: 600, color: "white" }}>{req.company?.name}</div>
                           <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "2px" }}>
                             CNPJ: {req.company?.taxId}
                           </div>
                         </td>
-                        <td>
-                          <div>{req.requestor?.name}</div>
-                          <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "2px" }}>
-                            {req.requestor?.role} {req.requestor?.billingEmail ? `| Fin: ${req.requestor.billingEmail}` : ''}
-                          </div>
-                        </td>
+                        {viewMode === "full" && (
+                          <td>
+                            <div>{req.requestor?.name}</div>
+                            <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "2px" }}>
+                              {req.requestor?.role} {req.requestor?.billingEmail ? `| Fin: ${req.requestor.billingEmail}` : ''}
+                            </div>
+                          </td>
+                        )}
                         <td>
                           <div>{req.aircraft?.typeQty}</div>
                           {req.aircraft?.registration && (
@@ -886,44 +912,48 @@ export default function AdminPage() {
                             <span className="badge badge-warning">Aguardando</span>
                           )}
                         </td>
-                        <td style={{ fontSize: "11px", color: "var(--text-dark-muted)" }}>
-                          {req.status === "confirmed" ? (
-                            <>
-                              <div>{new Date(req.confirmedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
-                              <div style={{ fontFamily: "monospace", marginTop: "2px" }}>IP: {req.confirmationIp}</div>
-                            </>
-                          ) : (
-                            <span style={{ color: "rgba(255,255,255,0.15)" }}>Aguardando link</span>
-                          )}
-                        </td>
-                        <td>
-                          {req.status === "confirmed" && req.approvalStatus === "authorized" ? (
-                            <a 
-                              href={`/api/requests/pdf?id=${req.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="admin-action-btn"
-                              style={{ 
-                                padding: "6px 10px", 
-                                fontSize: "11px", 
-                                gap: "4px", 
-                                backgroundColor: "rgba(239, 91, 37, 0.15)", 
-                                borderColor: "rgba(239, 91, 37, 0.4)", 
-                                color: "var(--text-dark)",
-                                textDecoration: "none"
-                              }}
-                              title="Baixar PDF Oficial"
-                              download
-                            >
-                              <Download size={12} style={{ color: "var(--accent)" }} />
-                              <span>PDF</span>
-                            </a>
-                          ) : (
-                            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
-                              {req.status !== "confirmed" ? "Rascunho" : "Pendente/Recusado"}
-                            </span>
-                          )}
-                        </td>
+                        {viewMode === "full" && (
+                          <>
+                            <td style={{ fontSize: "11px", color: "var(--text-dark-muted)" }}>
+                              {req.status === "confirmed" ? (
+                                <>
+                                  <div>{new Date(req.confirmedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
+                                  <div style={{ fontFamily: "monospace", marginTop: "2px" }}>IP: {req.confirmationIp}</div>
+                                </>
+                              ) : (
+                                <span style={{ color: "rgba(255,255,255,0.15)" }}>Aguardando link</span>
+                              )}
+                            </td>
+                            <td>
+                              {req.status === "confirmed" && req.approvalStatus === "authorized" ? (
+                                <a 
+                                  href={`/api/requests/pdf?id=${req.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="admin-action-btn"
+                                  style={{ 
+                                    padding: "6px 10px", 
+                                    fontSize: "11px", 
+                                    gap: "4px", 
+                                    backgroundColor: "rgba(239, 91, 37, 0.15)", 
+                                    borderColor: "rgba(239, 91, 37, 0.4)", 
+                                    color: "var(--text-dark)",
+                                    textDecoration: "none"
+                                  }}
+                                  title="Baixar PDF Oficial"
+                                  download
+                                >
+                                  <Download size={12} style={{ color: "var(--accent)" }} />
+                                  <span>PDF</span>
+                                </a>
+                              ) : (
+                                <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", fontStyle: "italic" }}>
+                                  {req.status !== "confirmed" ? "Rascunho" : "Pendente/Recusado"}
+                                </span>
+                              )}
+                            </td>
+                          </>
+                        )}
                         <td>
                           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                             {req.status === "confirmed" && (!req.approvalStatus || req.approvalStatus === "pending_analysis") ? (
