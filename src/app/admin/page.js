@@ -845,7 +845,7 @@ export default function AdminPage() {
                       {viewMode === "full" && <th>ID</th>}
                       <th>Empresa / Operador</th>
                       {viewMode === "full" && <th>Solicitante</th>}
-                      <th>Aeronave</th>
+                      {viewMode === "full" && <th>Aeronave</th>}
                       <th>Período Solicitado</th>
                       <th>Operador</th>
                       <th>Autorização</th>
@@ -876,14 +876,16 @@ export default function AdminPage() {
                             </div>
                           </td>
                         )}
-                        <td>
-                          <div>{req.aircraft?.typeQty}</div>
-                          {req.aircraft?.registration && (
-                            <div style={{ fontSize: "11px", color: "var(--accent)", marginTop: "2px", fontWeight: "bold" }}>
-                              {req.aircraft.registration}
-                            </div>
-                          )}
-                        </td>
+                        {viewMode === "full" && (
+                          <td>
+                            <div>{req.aircraft?.typeQty}</div>
+                            {req.aircraft?.registration && (
+                              <div style={{ fontSize: "11px", color: "var(--accent)", marginTop: "2px", fontWeight: "bold" }}>
+                                {req.aircraft.registration}
+                              </div>
+                            )}
+                          </td>
+                        )}
                         <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
                           <div><strong>De:</strong> {new Date(req.period?.start).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                           <div style={{ marginTop: "2px" }}><strong>Até:</strong> {new Date(req.period?.end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
