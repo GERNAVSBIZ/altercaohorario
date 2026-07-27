@@ -380,6 +380,7 @@ export default function OperationalPage() {
   const [selectedOperator, setSelectedOperator] = useState("Todos");
   const [showReport, setShowReport] = useState(true);
   const [selectedYear, setSelectedYear] = useState("Todos");
+  const [executionFilter, setExecutionFilter] = useState("Todos"); // "Todos" | "futuras" | "finalizadas"
 
   // Custom Date/Time picker popover state
   const [activePicker, setActivePicker] = useState(null); // { attendanceId, field: "start" | "end" }
@@ -866,7 +867,18 @@ export default function OperationalPage() {
       matchesYear = year === parseInt(selectedYear);
     }
 
-    return matchesQuery && matchesMonth && matchesOperator && matchesYear;
+    // 5. Execution Status match
+    let matchesExecution = true;
+    if (executionFilter !== "Todos") {
+      const isFuture = r.period?.end ? new Date(r.period.end) >= new Date() : false;
+      if (executionFilter === "futuras") {
+        matchesExecution = isFuture;
+      } else if (executionFilter === "finalizadas") {
+        matchesExecution = !isFuture;
+      }
+    }
+
+    return matchesQuery && matchesMonth && matchesOperator && matchesYear && matchesExecution;
   });
 
   // Calculate report data grouped by operator, filtered by selected month, year and operator
@@ -1196,6 +1208,24 @@ export default function OperationalPage() {
             </select>
           </div>
 
+          {/* Execution Status selector */}
+          <div style={{ width: "200px", minWidth: "160px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", display: "block", marginBottom: "6px", fontWeight: "600" }}>
+              Status de Execução
+            </span>
+            <select
+              className="form-input"
+              style={{ height: "40px", padding: "8px 12px" }}
+              value={executionFilter}
+              onChange={e => setExecutionFilter(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Todos">Todos os Status</option>
+              <option value="futuras">Não Executadas / Futuras</option>
+              <option value="finalizadas">Finalizadas / Passadas</option>
+            </select>
+          </div>
+
           {/* Report toggle button */}
           <button 
             onClick={() => setShowReport(!showReport)}
@@ -1306,9 +1336,13 @@ export default function OperationalPage() {
               <tbody>
                 {filteredRequests.map((req) => {
                   const isEditing = editingId === req.id;
+                  const isFuture = req.period?.end ? new Date(req.period.end) >= new Date() : false;
                   
                   return (
-                    <tr key={req.id}>
+                    <tr 
+                      key={req.id} 
+                      style={isFuture ? { backgroundColor: "rgba(245, 158, 11, 0.08)" } : null}
+                    >
                       <td style={{ fontFamily: "monospace", fontWeight: "bold", color: "var(--text-dark-muted)" }}>
                         #{req.id.slice(-6).toUpperCase()}
                       </td>
@@ -1332,6 +1366,22 @@ export default function OperationalPage() {
                           <div><strong>De:</strong> {formatToBrasiliaDateTime(req.period?.start)}</div>
                           <div style={{ marginTop: "2px" }}><strong>Até:</strong> {formatToBrasiliaDateTime(req.period?.end)}</div>
                         </div>
+                        {isFuture && (
+                          <span 
+                            className="badge pending" 
+                            style={{ 
+                              fontSize: "9.5px", 
+                              padding: "2px 6px", 
+                              marginTop: "6px", 
+                              display: "inline-block",
+                              backgroundColor: "rgba(245, 158, 11, 0.15)",
+                              color: "#f59e0b",
+                              borderColor: "rgba(245, 158, 11, 0.3)"
+                            }}
+                          >
+                            Não Executado
+                          </span>
+                        )}
                       </td>
 
                       {/* Atendimento PNA/OEA */}
