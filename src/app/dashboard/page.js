@@ -455,59 +455,56 @@ export default function DashboardPage() {
     setSuccessMsg("");
     setSubmitLoading(true);
 
+    const showError = (msg, section) => {
+      setErrorMsg(msg);
+      setOpenSections(prev => ({ ...prev, [section]: true }));
+      setSubmitLoading(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
     // Validation checks
     if (!companyName || !companyTaxId || !companyEmail || !companyPhone || !companyAddress) {
-      setErrorMsg("Por favor, preencha todos os dados da empresa.");
-      setOpenSections(prev => ({ ...prev, company: true }));
-      setSubmitLoading(false);
+      showError("Por favor, preencha todos os dados da empresa.", "company");
       return;
     }
 
     if (!aircraftOperator || !requestorName || !requestorRole || !requestorBillingEmail || !serviceType) {
-      setErrorMsg("Por favor, preencha os dados do solicitante, operador e e-mail de faturamento.");
-      setOpenSections(prev => ({ ...prev, operator: true }));
-      setSubmitLoading(false);
+      showError("Por favor, preencha os dados do solicitante, operador e e-mail de faturamento.", "operator");
       return;
     }
 
     if (!aircraftTypeQty || !aircraftRegistration || !pilotName || !pilotAnac) {
-      setErrorMsg("Por favor, preencha a identificação da aeronave, matrícula e dados do piloto.");
-      setOpenSections(prev => ({ ...prev, flight: true }));
-      setSubmitLoading(false);
+      showError("Por favor, preencha a identificação da aeronave, matrícula e dados do piloto.", "flight");
       return;
     }
 
     if (!intentionDecolagem && !intentionPouso && !intentionAlternativa) {
-      setErrorMsg("Por favor, selecione pelo menos uma Intenção de Voo (Decolagem, Pouso ou Alternativa).");
-      setOpenSections(prev => ({ ...prev, period: true }));
-      setSubmitLoading(false);
+      showError("Por favor, selecione pelo menos uma Intenção de Voo (Decolagem, Pouso ou Alternativa).", "period");
       return;
     }
 
     if (!periodStart || !periodEnd) {
-      setErrorMsg("Por favor, preencha o período solicitado.");
-      setOpenSections(prev => ({ ...prev, period: true }));
-      setSubmitLoading(false);
+      showError("Por favor, preencha o período solicitado.", "period");
       return;
     }
 
     if (parseBrasiliaDate(periodStart) >= parseBrasiliaDate(periodEnd)) {
-      setErrorMsg("A data/hora de término deve ser após a data/hora de início.");
-      setOpenSections(prev => ({ ...prev, period: true }));
-      setSubmitLoading(false);
+      showError("A data/hora de término deve ser após a data/hora de início.", "period");
       return;
     }
 
     // Validate station operational hours overlap
     const overlap = checkOperationalHoursOverlap(periodStart, periodEnd, stationStartLocal, stationEndLocal);
     if (overlap) {
-      setErrorMsg(
-        `O horário solicitado coincide com o funcionamento padrão da estação (${stationStartLocal} às ${stationEndLocal}). ` +
-        `Conflito detectado no dia ${overlap.dateStr} das ${overlap.start.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'})} às ${overlap.end.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'})}. ` +
-        `Por favor, solicite apenas o período fora do horário de funcionamento.`
+      const overlapStart = overlap.start.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const overlapEnd = overlap.end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      
+      showError(
+        `⚠️ Conflito (${overlap.dateStr}, das ${overlapStart} às ${overlapEnd}): ` +
+        `Esse horário está dentro do funcionamento da Rádio Imperatriz (${stationStartLocal} às ${stationEndLocal}). ` +
+        `Por favor, solicite apenas entre ${stationEndLocal} e ${stationStartLocal}.`,
+        "period"
       );
-      setOpenSections(prev => ({ ...prev, period: true }));
-      setSubmitLoading(false);
       return;
     }
 
