@@ -765,7 +765,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab("settings")}
           >
             <Settings size={16} />
-            <span>Configuração de E-mails</span>
+            <span>Configurações</span>
           </button>
           <button 
             className={`tab-btn ${activeTab === "delinquents" ? "active" : ""}`}
@@ -877,7 +877,7 @@ export default function AdminPage() {
                       {viewMode === "full" && <th>Aeronave</th>}
                       <th>Período Solicitado</th>
                       <th>Operador</th>
-                      <th>Autorização</th>
+                      <th>Status</th>
                       {viewMode === "full" && <th>Assinatura / IP</th>}
                       {viewMode === "full" && <th>PDF</th>}
                       <th>Ações</th>
