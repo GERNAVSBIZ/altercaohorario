@@ -636,12 +636,12 @@ export default function DashboardPage() {
 
     // Determine min hours needed based on serviceType
     let minHours = 0;
-    if (serviceType === "Regular (Passageiros)") minHours = leadTimeRegular;
-    else if (serviceType === "Não-Regular (Fretamento)") minHours = leadTimeNonRegular;
+    if (serviceType === "Regular (CIA AÉREAS)") minHours = leadTimeRegular;
+    else if (serviceType === "Não Regular ( TAXI ÁEREO)") minHours = leadTimeNonRegular;
     else if (serviceType === "Geral (Executiva)") minHours = leadTimePrivate;
     else if (serviceType === "Carga Aérea") minHours = leadTimeCargo;
-    else if (serviceType === "Serviço de Saúde (AeroMédico)") minHours = leadTimeUti;
-    else if (serviceType === "Outro (Operação Militar / Estado)") minHours = leadTimeOther;
+    else if (serviceType === "Serviço de saúde (Aeromédico)") minHours = leadTimeUti;
+    else if (serviceType === "Outro") minHours = leadTimeOther;
 
     // Save profile for future requests (Firestore persistence)
     const profileData = {
@@ -1005,12 +1005,12 @@ export default function DashboardPage() {
                         required
                       >
                         <option value="">Selecione...</option>
-                        <option value="Regular (Passageiros)">Regular (Passageiros)</option>
-                        <option value="Não-Regular (Fretamento)">Não-Regular (Fretamento)</option>
+                        <option value="Regular (CIA AÉREAS)">Regular (CIA AÉREAS)</option>
+                        <option value="Não Regular ( TAXI ÁEREO)">Não Regular ( TAXI ÁEREO)</option>
                         <option value="Geral (Executiva)">Geral (Executiva)</option>
                         <option value="Carga Aérea">Carga Aérea</option>
-                        <option value="Serviço de Saúde (AeroMédico)">Serviço de Saúde (AeroMédico)</option>
-                        <option value="Outro (Operação Militar / Estado)">Outro</option>
+                        <option value="Serviço de saúde (Aeromédico)">Serviço de saúde (Aeromédico)</option>
+                        <option value="Outro">Outro</option>
                       </select>
                     </div>
                   </div>
