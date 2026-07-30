@@ -1520,7 +1520,7 @@ export default function DashboardPage() {
               borderRadius: "4px"
             }}>
               <p style={{ margin: 0, fontSize: "14px", color: "#fca5a5", lineHeight: "1.5", fontWeight: "bold" }}>
-                Atenção Operador: O tempo regulamentar para esta solicitação de alteração de horário (antecipação/prorrogação) não foi respeitado.
+                Atenção Operador: O intervalo regulamentar para esta solicitação de alteração de horário (antecipação/prorrogação) não foi respeitado.
               </p>
             </div>
 
@@ -1529,7 +1529,7 @@ export default function DashboardPage() {
             </p>
 
             <p style={{ fontSize: "13.5px", color: "var(--text-dark-muted)", lineHeight: "1.6", marginBottom: "24px" }}>
-              A sua solicitação foi registrada no sistema, mas encontra-se <strong>FORA DO PRAZO</strong> (Antecedência realizada: {lateRequestActual}h vs {lateRequestRequired}h exigida). O pedido foi encaminhado diretamente à <strong>Gerência da Dependência (DNB)</strong> para análise e deliberação excepcional.
+              A sua solicitação foi registrada no sistema, mas encontra-se <strong>FORA DO PRAZO</strong> (antecedência realizada: {lateRequestActual}h vs {lateRequestRequired}h exigida). O pedido foi encaminhado diretamente à <strong>Gerência da Dependência (DNB)</strong> para análise e deliberação excepcional.
             </p>
 
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap" }}>
