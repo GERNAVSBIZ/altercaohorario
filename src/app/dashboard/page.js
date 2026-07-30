@@ -1520,7 +1520,7 @@ export default function DashboardPage() {
               borderRadius: "4px"
             }}>
               <p style={{ margin: 0, fontSize: "14px", color: "#fca5a5", lineHeight: "1.5", fontWeight: "bold" }}>
-                Atenção Operador: O intervalo regulamentar para esta solicitação de alteração de horário (antecipação/prorrogação) não foi respeitado.
+                Atenção Operador: O prazo regulamentar para esta solicitação de alteração de horário (antecipação/prorrogação) não foi respeitado.
               </p>
             </div>
 
