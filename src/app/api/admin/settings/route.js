@@ -13,7 +13,13 @@ export async function GET(req) {
       operationalEmails: "",
       operatorsEmails: "",
       stationStartLocal: "00:15",
-      stationEndLocal: "17:45"
+      stationEndLocal: "17:45",
+      leadTimeRegular: 2,
+      leadTimeNonRegular: 2,
+      leadTimePrivate: 24,
+      leadTimeCargo: 2,
+      leadTimeUti: 0,
+      leadTimeOther: 0
     };
 
     if (adminDb) {
@@ -54,7 +60,13 @@ export async function POST(req) {
       operationalEmails, 
       operatorsEmails,
       stationStartLocal,
-      stationEndLocal
+      stationEndLocal,
+      leadTimeRegular,
+      leadTimeNonRegular,
+      leadTimePrivate,
+      leadTimeCargo,
+      leadTimeUti,
+      leadTimeOther
     } = data;
     
     if (!airportAdminEmail) {
@@ -75,6 +87,12 @@ export async function POST(req) {
       operatorsEmails: (operatorsEmails || "").toLowerCase(),
       stationStartLocal: stationStartLocal || "00:15",
       stationEndLocal: stationEndLocal || "17:45",
+      leadTimeRegular: leadTimeRegular !== undefined ? Number(leadTimeRegular) : 2,
+      leadTimeNonRegular: leadTimeNonRegular !== undefined ? Number(leadTimeNonRegular) : 2,
+      leadTimePrivate: leadTimePrivate !== undefined ? Number(leadTimePrivate) : 24,
+      leadTimeCargo: leadTimeCargo !== undefined ? Number(leadTimeCargo) : 2,
+      leadTimeUti: leadTimeUti !== undefined ? Number(leadTimeUti) : 0,
+      leadTimeOther: leadTimeOther !== undefined ? Number(leadTimeOther) : 0,
       updatedAt: new Date().toISOString()
     };
 

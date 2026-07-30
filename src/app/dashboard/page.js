@@ -118,6 +118,20 @@ export default function DashboardPage() {
   const [stationStartLocal, setStationStartLocal] = useState("00:15");
   const [stationEndLocal, setStationEndLocal] = useState("17:45");
 
+  // Lead times configuration states
+  const [leadTimeRegular, setLeadTimeRegular] = useState(2);
+  const [leadTimeNonRegular, setLeadTimeNonRegular] = useState(2);
+  const [leadTimePrivate, setLeadTimePrivate] = useState(24);
+  const [leadTimeCargo, setLeadTimeCargo] = useState(2);
+  const [leadTimeUti, setLeadTimeUti] = useState(0);
+  const [leadTimeOther, setLeadTimeOther] = useState(0);
+
+  // Late request confirmation modal states
+  const [showLateRequestConfirmModal, setShowLateRequestConfirmModal] = useState(false);
+  const [lateRequestRequired, setLateRequestRequired] = useState(0);
+  const [lateRequestActual, setLateRequestActual] = useState(0);
+  const [lateRequestPayload, setLateRequestPayload] = useState(null);
+
   // Tabs System & History states
   const [activeTab, setActiveTab] = useState("new_request"); // "new_request" | "my_requests"
   const [userRequests, setUserRequests] = useState([]);
@@ -312,6 +326,14 @@ export default function DashboardPage() {
                 // Load station hours
                 setStationStartLocal(settings.stationStartLocal || "00:15");
                 setStationEndLocal(settings.stationEndLocal || "17:45");
+
+                // Load lead times
+                setLeadTimeRegular(settings.leadTimeRegular !== undefined ? settings.leadTimeRegular : 2);
+                setLeadTimeNonRegular(settings.leadTimeNonRegular !== undefined ? settings.leadTimeNonRegular : 2);
+                setLeadTimePrivate(settings.leadTimePrivate !== undefined ? settings.leadTimePrivate : 24);
+                setLeadTimeCargo(settings.leadTimeCargo !== undefined ? settings.leadTimeCargo : 2);
+                setLeadTimeUti(settings.leadTimeUti !== undefined ? settings.leadTimeUti : 0);
+                setLeadTimeOther(settings.leadTimeOther !== undefined ? settings.leadTimeOther : 0);
               }
             } catch (settingsErr) {
               console.error("Error loading settings in dashboard:", settingsErr);
@@ -449,6 +471,104 @@ export default function DashboardPage() {
     }
   };
 
+  const executeSubmitRequest = async (requestPayload) => {
+    try {
+      setSubmitLoading(true);
+      
+      // Send token in authorization header if logged in via Firebase
+      const headers = { "Content-Type": "application/json" };
+      if (auth && auth.currentUser) {
+        const token = await auth.currentUser.getIdToken();
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch("/api/requests", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(requestPayload)
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.error || "Erro ao registrar solicitação");
+      }
+
+      // If in sandbox mode, save/update in localStorage to persist user history
+      if (user?.isMock || responseData.mock) {
+        const existingMock = JSON.parse(localStorage.getItem("mock_requests") || "[]");
+        if (editingRequestId) {
+          const updatedMock = existingMock.map(m => m.id === editingRequestId ? {
+            ...m,
+            status: "pending_confirmation",
+            approvalStatus: "waiting_confirmation",
+            company: requestPayload.company,
+            aircraft: requestPayload.aircraft,
+            requestor: requestPayload.requestor,
+            pilot: requestPayload.pilot,
+            serviceType: requestPayload.serviceType,
+            period: requestPayload.period,
+            intentions: requestPayload.intentions,
+            notes: requestPayload.notes,
+            lateRequest: requestPayload.lateRequest || false,
+            lateRequestDetails: requestPayload.lateRequestDetails || null,
+            updatedAt: new Date().toISOString()
+          } : m);
+          localStorage.setItem("mock_requests", JSON.stringify(updatedMock));
+        } else {
+          const newMockReq = {
+            id: responseData.requestId || `req_${Math.random().toString(36).substr(2, 9)}`,
+            status: "pending_confirmation",
+            approvalStatus: "waiting_confirmation",
+            createdAt: new Date().toISOString(),
+            company: requestPayload.company,
+            aircraft: requestPayload.aircraft,
+            requestor: requestPayload.requestor,
+            pilot: requestPayload.pilot,
+            serviceType: requestPayload.serviceType,
+            period: requestPayload.period,
+            intentions: requestPayload.intentions,
+            notes: requestPayload.notes,
+            lateRequest: requestPayload.lateRequest || false,
+            lateRequestDetails: requestPayload.lateRequestDetails || null
+          };
+          localStorage.setItem("mock_requests", JSON.stringify([newMockReq, ...existingMock]));
+        }
+      }
+
+      if (editingRequestId) {
+        setSuccessMsg("Solicitação atualizada com sucesso! Um novo e-mail de dupla confirmação foi enviado para validar suas alterações.");
+      } else {
+        setSuccessMsg("Solicitação pré-registrada! Verifique seu e-mail para confirmar a prorrogação.");
+      }
+
+      // Clear form notes, dates and intentions
+      setPeriodStart("");
+      setPeriodEnd("");
+      setNotes("");
+      setIntentionDecolagem(false);
+      setIntentionPouso(false);
+      setIntentionAlternativa(false);
+      setEditingRequestId(null);
+      setEditingRequestCreatedAt(null);
+      
+      // Automatically redirect to the requests history tab to show the pending item
+      setActiveTab("my_requests");
+      
+      // Refresh requests history list
+      fetchUserRequests();
+
+      // Scroll to top to see confirmation message
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error("Submit request error:", err);
+      setErrorMsg(err.message || "Erro no servidor ao processar solicitação.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
@@ -507,6 +627,21 @@ export default function DashboardPage() {
       );
       return;
     }
+
+    // Calculate lead time difference
+    const startDt = parseBrasiliaDate(periodStart);
+    const nowDt = new Date();
+    const diffMs = startDt.getTime() - nowDt.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    // Determine min hours needed based on serviceType
+    let minHours = 0;
+    if (serviceType === "Regular (Passageiros)") minHours = leadTimeRegular;
+    else if (serviceType === "Não-Regular (Fretamento)") minHours = leadTimeNonRegular;
+    else if (serviceType === "Geral (Executiva)") minHours = leadTimePrivate;
+    else if (serviceType === "Carga Aérea") minHours = leadTimeCargo;
+    else if (serviceType === "Serviço de Saúde (AeroMédico)") minHours = leadTimeUti;
+    else if (serviceType === "Outro (Operação Militar / Estado)") minHours = leadTimeOther;
 
     // Save profile for future requests (Firestore persistence)
     const profileData = {
@@ -574,94 +709,25 @@ export default function DashboardPage() {
       notes
     };
 
-    try {
-      // Send token in authorization header if logged in via Firebase
-      const headers = { "Content-Type": "application/json" };
-      if (auth && auth.currentUser) {
-        const token = await auth.currentUser.getIdToken();
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const response = await fetch("/api/requests", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(requestPayload)
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(responseData.error || "Erro ao registrar solicitação");
-      }
-
-      // If in sandbox mode, save/update in localStorage to persist user history
-      if (user?.isMock || responseData.mock) {
-        const existingMock = JSON.parse(localStorage.getItem("mock_requests") || "[]");
-        if (editingRequestId) {
-          const updatedMock = existingMock.map(m => m.id === editingRequestId ? {
-            ...m,
-            status: "pending_confirmation",
-            approvalStatus: "waiting_confirmation",
-            company: requestPayload.company,
-            aircraft: requestPayload.aircraft,
-            requestor: requestPayload.requestor,
-            pilot: requestPayload.pilot,
-            serviceType: requestPayload.serviceType,
-            period: requestPayload.period,
-            intentions: requestPayload.intentions,
-            notes: requestPayload.notes,
-            updatedAt: new Date().toISOString()
-          } : m);
-          localStorage.setItem("mock_requests", JSON.stringify(updatedMock));
-        } else {
-          const newMockReq = {
-            id: responseData.requestId || `req_${Math.random().toString(36).substr(2, 9)}`,
-            status: "pending_confirmation",
-            approvalStatus: "waiting_confirmation",
-            createdAt: new Date().toISOString(),
-            company: requestPayload.company,
-            aircraft: requestPayload.aircraft,
-            requestor: requestPayload.requestor,
-            pilot: requestPayload.pilot,
-            serviceType: requestPayload.serviceType,
-            period: requestPayload.period,
-            intentions: requestPayload.intentions,
-            notes: requestPayload.notes
-          };
-          localStorage.setItem("mock_requests", JSON.stringify([newMockReq, ...existingMock]));
+    // If request is late, prompt confirmation modal
+    if (minHours > 0 && diffHours < minHours) {
+      setLateRequestRequired(minHours);
+      const roundedActual = Math.max(0, Math.round(diffHours * 10) / 10);
+      setLateRequestActual(roundedActual);
+      setLateRequestPayload({
+        ...requestPayload,
+        lateRequest: true,
+        lateRequestDetails: {
+          requiredHours: minHours,
+          actualHours: roundedActual
         }
-      }
-
-      if (editingRequestId) {
-        setSuccessMsg("Solicitação atualizada com sucesso! Um novo e-mail de dupla confirmação foi enviado para validar suas alterações.");
-      } else {
-        setSuccessMsg("Solicitação pré-registrada! Verifique seu e-mail para confirmar a prorrogação.");
-      }
-
-      // Clear form notes, dates and intentions
-      setPeriodStart("");
-      setPeriodEnd("");
-      setNotes("");
-      setIntentionDecolagem(false);
-      setIntentionPouso(false);
-      setIntentionAlternativa(false);
-      setEditingRequestId(null);
-      setEditingRequestCreatedAt(null);
-      
-      // Automatically redirect to the requests history tab to show the pending item
-      setActiveTab("my_requests");
-      
-      // Refresh requests history list
-      fetchUserRequests();
-
-      // Scroll to top to see confirmation message
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err) {
-      console.error("Submit request error:", err);
-      setErrorMsg(err.message || "Erro no servidor ao processar solicitação.");
-    } finally {
+      });
+      setShowLateRequestConfirmModal(true);
       setSubmitLoading(false);
+      return;
     }
+
+    await executeSubmitRequest(requestPayload);
   };
 
   if (authLoading) {
@@ -1402,6 +1468,104 @@ export default function DashboardPage() {
                 }}
               >
                 Estou Ciente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLateRequestConfirmModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(10, 10, 10, 0.8)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "20px"
+        }}>
+          <div className="card" style={{
+            maxWidth: "550px",
+            width: "100%",
+            backgroundColor: "#16161a",
+            border: "1.5px solid rgba(244, 63, 94, 0.3)",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+            padding: "28px",
+            borderRadius: "8px"
+          }}>
+            <h2 style={{
+              color: "#f43f5e",
+              fontSize: "18px",
+              fontWeight: "bold",
+              marginTop: 0,
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}>
+              <CircleAlert size={22} style={{ color: "#f43f5e" }} />
+              Aviso de Prazo Regulamentar (MCA 102-7)
+            </h2>
+            
+            <div style={{
+              backgroundColor: "rgba(244, 63, 94, 0.05)",
+              borderLeft: "4px solid #f43f5e",
+              padding: "14px",
+              marginBottom: "20px",
+              borderRadius: "4px"
+            }}>
+              <p style={{ margin: 0, fontSize: "14px", color: "#fca5a5", lineHeight: "1.5", fontWeight: "bold" }}>
+                Atenção Operador: O tempo regulamentar para esta solicitação de alteração de horário (antecipação/prorrogação) não foi respeitado.
+              </p>
+            </div>
+
+            <p style={{ fontSize: "13.5px", color: "var(--text-dark-muted)", lineHeight: "1.6", marginBottom: "20px" }}>
+              <strong>Regra aplicável:</strong> De acordo com o <strong>MCA 102-7, itens 15.3.3.1 e 15.3.3.2</strong>, as solicitações devem ser realizadas com antecedência mínima de <strong>24 horas</strong> ou, excepcionalmente para empresas de transporte aéreo, com até <strong>1 (uma) hora</strong> de antecedência do encerramento do serviço.
+            </p>
+
+            <p style={{ fontSize: "13.5px", color: "var(--text-dark-muted)", lineHeight: "1.6", marginBottom: "24px" }}>
+              A sua solicitação foi registrada no sistema, mas encontra-se <strong>FORA DO PRAZO</strong> (Antecedência realizada: {lateRequestActual}h vs {lateRequestRequired}h exigida). O pedido foi encaminhado diretamente à <strong>Gerência da Dependência (DNB)</strong> para análise e deliberação excepcional.
+            </p>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button 
+                type="button"
+                className="btn" 
+                onClick={() => {
+                  setShowLateRequestConfirmModal(false);
+                  setLateRequestPayload(null);
+                }}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  color: "white",
+                  padding: "10px 20px"
+                }}
+              >
+                Cancelar e Ajustar
+              </button>
+              <button 
+                type="button"
+                className="btn" 
+                onClick={async () => {
+                  setShowLateRequestConfirmModal(false);
+                  if (lateRequestPayload) {
+                    await executeSubmitRequest(lateRequestPayload);
+                  }
+                }}
+                style={{
+                  backgroundColor: "#f43f5e",
+                  borderColor: "#f43f5e",
+                  color: "white",
+                  padding: "10px 20px"
+                }}
+              >
+                Confirmar e Enviar para DNB
               </button>
             </div>
           </div>

@@ -60,6 +60,12 @@ export default function AdminPage() {
   const [operatorsEmails, setOperatorsEmails] = useState("");
   const [stationStartLocal, setStationStartLocal] = useState("00:15");
   const [stationEndLocal, setStationEndLocal] = useState("17:45");
+  const [leadTimeRegular, setLeadTimeRegular] = useState(2);
+  const [leadTimeNonRegular, setLeadTimeNonRegular] = useState(2);
+  const [leadTimePrivate, setLeadTimePrivate] = useState(24);
+  const [leadTimeCargo, setLeadTimeCargo] = useState(2);
+  const [leadTimeUti, setLeadTimeUti] = useState(0);
+  const [leadTimeOther, setLeadTimeOther] = useState(0);
 
   // Delinquents State
   const [delinquentAircrafts, setDelinquentAircrafts] = useState([]);
@@ -123,6 +129,12 @@ export default function AdminPage() {
       setOperatorsEmails(s.operatorsEmails || "");
       setStationStartLocal(s.stationStartLocal || "00:15");
       setStationEndLocal(s.stationEndLocal || "17:45");
+      setLeadTimeRegular(s.leadTimeRegular !== undefined ? s.leadTimeRegular : 2);
+      setLeadTimeNonRegular(s.leadTimeNonRegular !== undefined ? s.leadTimeNonRegular : 2);
+      setLeadTimePrivate(s.leadTimePrivate !== undefined ? s.leadTimePrivate : 24);
+      setLeadTimeCargo(s.leadTimeCargo !== undefined ? s.leadTimeCargo : 2);
+      setLeadTimeUti(s.leadTimeUti !== undefined ? s.leadTimeUti : 0);
+      setLeadTimeOther(s.leadTimeOther !== undefined ? s.leadTimeOther : 0);
       
       // 3. Fetch delinquents
       await fetchDelinquents();
@@ -402,7 +414,13 @@ export default function AdminPage() {
           operationalEmails,
           operatorsEmails,
           stationStartLocal,
-          stationEndLocal
+          stationEndLocal,
+          leadTimeRegular,
+          leadTimeNonRegular,
+          leadTimePrivate,
+          leadTimeCargo,
+          leadTimeUti,
+          leadTimeOther
         })
       });
 
@@ -924,6 +942,23 @@ export default function AdminPage() {
                           {req.status !== "confirmed" && (!req.approvalStatus || req.approvalStatus === "waiting_confirmation") && (
                             <span className="badge badge-warning">Aguardando</span>
                           )}
+                          {req.lateRequest && (
+                            <div style={{ marginTop: "4px" }}>
+                              <span 
+                                className="badge" 
+                                style={{ 
+                                  fontSize: "9.5px", 
+                                  padding: "2px 6px", 
+                                  backgroundColor: "rgba(244, 63, 94, 0.15)", 
+                                  color: "#f43f5e", 
+                                  borderColor: "rgba(244, 63, 94, 0.3)",
+                                  display: "inline-block"
+                                }}
+                              >
+                                Fora do Prazo ({req.lateRequestDetails?.actualHours}h vs {req.lateRequestDetails?.requiredHours}h)
+                              </span>
+                            </div>
+                          )}
                         </td>
                         {viewMode === "full" && (
                           <>
@@ -1212,6 +1247,84 @@ export default function AdminPage() {
                   <span style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "4px", display: "block" }}>
                     Horário em que a estação encerra o funcionamento operacional padrão (Ex: 17:45).
                   </span>
+                </div>
+              </div>
+
+              <h3 style={{ color: "white", fontSize: "14px", marginTop: "24px", marginBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "8px" }}>
+                Antecedência Mínima para Solicitações (MCA 102-7)
+              </h3>
+              <div className="form-grid" style={{ marginBottom: "20px" }}>
+                <div className="form-group">
+                  <label className="form-label">Voo Regular (horas)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="form-input" 
+                    value={leadTimeRegular}
+                    onChange={e => setLeadTimeRegular(Number(e.target.value))}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fretamento / Não-Regular (horas)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="form-input" 
+                    value={leadTimeNonRegular}
+                    onChange={e => setLeadTimeNonRegular(Number(e.target.value))}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Aviação Geral / Executiva (horas)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="form-input" 
+                    value={leadTimePrivate}
+                    onChange={e => setLeadTimePrivate(Number(e.target.value))}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Carga Aérea (horas)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="form-input" 
+                    value={leadTimeCargo}
+                    onChange={e => setLeadTimeCargo(Number(e.target.value))}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">AeroMédico / UTI (horas)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="form-input" 
+                    value={leadTimeUti}
+                    onChange={e => setLeadTimeUti(Number(e.target.value))}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Militar / Outros (horas)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="form-input" 
+                    value={leadTimeOther}
+                    onChange={e => setLeadTimeOther(Number(e.target.value))}
+                    disabled={settingsLoading || loading}
+                    required
+                  />
                 </div>
               </div>
 

@@ -1411,6 +1411,23 @@ export default function OperationalPage() {
                             Não Executado
                           </span>
                         )}
+                        {req.lateRequest && (
+                          <div style={{ marginTop: "4px" }}>
+                            <span 
+                              className="badge" 
+                              style={{ 
+                                fontSize: "9.5px", 
+                                padding: "2px 6px", 
+                                display: "inline-block",
+                                backgroundColor: "rgba(244, 63, 94, 0.15)",
+                                color: "#f43f5e",
+                                border: "1px solid rgba(244, 63, 94, 0.3)"
+                              }}
+                            >
+                              Fora do Prazo
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Atendimento PNA/OEA */}

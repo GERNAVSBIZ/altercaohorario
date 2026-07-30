@@ -13,6 +13,22 @@ function formatIntentions(intentions) {
   return list.length > 0 ? list.join(", ") : "Nenhuma";
 }
 
+function getLateRequestHtml(requestData) {
+  if (!requestData || !requestData.lateRequest) return "";
+  
+  const required = requestData.lateRequestDetails?.requiredHours || 0;
+  const actual = requestData.lateRequestDetails?.actualHours || 0;
+  
+  return `
+    <div style="background-color: #fff5f5; border: 1.5px solid #ff8787; padding: 14px; margin: 15px 0; border-radius: 6px; font-size: 13.5px; color: #c92a2a; line-height: 1.5;">
+      <strong style="font-size: 14.5px;">⚠️ ATENÇÃO: SOLICITAÇÃO FORA DO PRAZO REGULAMENTAR</strong><br/>
+      De acordo com o <strong>MCA 102-7 (itens 15.3.3.1 e 15.3.3.2)</strong>, esta solicitação infringe o prazo mínimo regulamentar.<br/>
+      <strong>Antecedência exigida:</strong> ${required}h | <strong>Antecedência realizada:</strong> ${actual}h.<br/>
+      Este pedido foi submetido pelo operador e requer análise e deliberação excepcional pela Gerência da Dependência (DNB).
+    </div>
+  `;
+}
+
 /**
  * Sends a transactional email via Brevo (raw).
  * If API key is missing or is placeholder, logs contents to console.
@@ -289,6 +305,7 @@ export async function sendAdminNotificationEmail({ adminEmail, requestData, pdfB
       <h2 style="color: #0b3c5d; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Solicitação de Prorrogação de Horário</h2>
       <p>Prezada Administração da NAV Brasil - DNIZ,</p>
       <p>Uma nova solicitação de prorrogação de horário foi <strong>confirmada pelo operador</strong> e está pronta para análise.</p>
+      ${getLateRequestHtml(requestData)}
       
       <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Resumo dos Dados</h3>
       <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
@@ -398,6 +415,7 @@ export async function sendAdminPreNotificationEmail({ adminEmail, requestData, p
       <div style="background-color: #fff9db; border: 1px solid #ffe066; padding: 12px; margin: 15px 0; border-radius: 4px; font-size: 13px; color: #664d03;">
         <strong>Atenção:</strong> Esta solicitação ainda NÃO foi assinada digitalmente pelo operador e não deve ser faturada ou processada até a confirmação definitiva.
       </div>
+      ${getLateRequestHtml(requestData)}
 
       <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Resumo dos Dados</h3>
       <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
@@ -658,6 +676,7 @@ export async function sendOperatorNotificationEmail({ operatorEmail, operatorNam
       <h2 style="color: #0b3c5d; border-bottom: 2px solid #ef5b25; padding-bottom: 10px; margin-top: 0;">Aviso de Prorrogação de Horário</h2>
       <p>Olá, <strong>${operatorName}</strong>,</p>
       <p>Você foi identificado como o operador do turno correspondente a esta solicitação de prorrogação de horário que foi <strong>confirmada pelo cliente</strong>:</p>
+      ${getLateRequestHtml(requestData)}
       
       <h3 style="color: #0b3c5d; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Resumo dos Dados</h3>
       <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
