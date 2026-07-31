@@ -1304,6 +1304,7 @@ export default function OperationalPage() {
                       <th style={{ textAlign: "center", width: "160px" }}>Qtd. Atendimentos</th>
                       <th style={{ textAlign: "center", width: "200px" }}>Total Antecipado</th>
                       <th style={{ textAlign: "center", width: "200px" }}>Total Prorrogado</th>
+                      <th style={{ textAlign: "center", width: "200px" }}>Total Geral</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1313,6 +1314,7 @@ export default function OperationalPage() {
                         <td style={{ textAlign: "center", fontWeight: "600" }}>{row.count}</td>
                         <td style={{ textAlign: "center", color: "#3b82f6", fontWeight: "600" }}>{formatMinToHours(row.antMin)}</td>
                         <td style={{ textAlign: "center", color: "#ef5b25", fontWeight: "600" }}>{formatMinToHours(row.prorMin)}</td>
+                        <td style={{ textAlign: "center", color: "#10b981", fontWeight: "600" }}>{formatMinToHours(row.antMin + row.prorMin)}</td>
                       </tr>
                     ))}
                   </tbody>
