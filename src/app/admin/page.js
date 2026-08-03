@@ -1060,11 +1060,10 @@ export default function AdminPage() {
                             <button
                               onClick={() => handleDeleteRequest(req.id)}
                               className="admin-action-btn btn-reject"
-                              style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                              style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                               title="Excluir Solicitação"
                             >
                               <Trash2 size={12} />
-                              <span>Excluir</span>
                             </button>
                           </div>
                         </td>
