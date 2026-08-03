@@ -1033,9 +1033,14 @@ export default function AdminPage() {
                                 <X size={12} />
                               </button>
                             ) : req.status === "confirmed" && req.approvalStatus === "cancelled" ? (
-                              <span style={{ fontSize: "11.5px", color: "#ffa8a8", fontWeight: "500" }}>
-                                Cancelada
-                              </span>
+                              <button 
+                                disabled
+                                className="admin-action-btn btn-reject"
+                                style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center", opacity: 0.4, cursor: "not-allowed" }}
+                                title="Solicitação Cancelada"
+                              >
+                                <X size={12} />
+                              </button>
                             ) : req.status === "confirmed" ? (
                               <span style={{ fontSize: "11.5px", color: "var(--text-dark-muted)", fontWeight: "500" }}>
                                 Finalizado
