@@ -1009,31 +1009,28 @@ export default function AdminPage() {
                                 <button 
                                   onClick={() => handleApprove(req.id, "authorized")}
                                   className="admin-action-btn btn-approve"
-                                  style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                                  style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                                   title="Autorizar Horário"
                                 >
                                   <Check size={12} />
-                                  <span>Autorizar</span>
                                 </button>
                                 <button 
                                   onClick={() => handleApprove(req.id, "not_authorized")}
                                   className="admin-action-btn btn-reject"
-                                  style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                                  style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                                   title="Recusar Horário"
                                 >
                                   <X size={12} />
-                                  <span>Recusar</span>
                                 </button>
                               </div>
                             ) : req.status === "confirmed" && req.approvalStatus === "authorized" ? (
                               <button 
                                 onClick={() => handleApprove(req.id, "cancelled")}
                                 className="admin-action-btn btn-reject"
-                                style={{ padding: "6px 10px", fontSize: "11px", gap: "4px", backgroundColor: "rgba(232, 89, 12, 0.15)", borderColor: "rgba(232, 89, 12, 0.4)", color: "#ffa8a8" }}
+                                style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(232, 89, 12, 0.15)", borderColor: "rgba(232, 89, 12, 0.4)", color: "#ffa8a8" }}
                                 title="Cancelar Prorrogação Autorizada"
                               >
                                 <X size={12} />
-                                <span>Cancelar</span>
                               </button>
                             ) : req.status === "confirmed" && req.approvalStatus === "cancelled" ? (
                               <span style={{ fontSize: "11.5px", color: "#ffa8a8", fontWeight: "500" }}>
@@ -1048,11 +1045,10 @@ export default function AdminPage() {
                                 <button 
                                   onClick={() => handleConfirmManual(req.id)}
                                   className="admin-action-btn btn-approve"
-                                  style={{ padding: "6px 10px", fontSize: "11px", gap: "4px" }}
+                                  style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                                   title="Confirmar Solicitação Manualmente"
                                 >
                                   <Check size={12} />
-                                  <span>Confirmar Manual</span>
                                 </button>
                               ) : (
                                 <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.15)" }}>
