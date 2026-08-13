@@ -1378,7 +1378,24 @@ export default function OperationalPage() {
                         </td>
                       )}
                       <td>
-                        <div style={{ fontWeight: 600, color: "white" }}>{req.company?.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <div style={{ fontWeight: 600, color: "white" }}>{req.company?.name}</div>
+                          {req.approvalStatus === "cancelled" && (
+                            <span 
+                              className="badge" 
+                              style={{ 
+                                fontSize: "9px", 
+                                padding: "2px 6px", 
+                                backgroundColor: "rgba(239, 68, 68, 0.15)", 
+                                color: "#ef4444", 
+                                border: "1px solid rgba(239, 68, 68, 0.3)",
+                                borderRadius: "4px"
+                              }}
+                            >
+                              Cancelada
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: "11px", color: "var(--text-dark-muted)", marginTop: "2px" }}>
                           CNPJ: {req.company?.taxId}
                         </div>
