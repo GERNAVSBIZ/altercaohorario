@@ -1392,7 +1392,7 @@ export default function OperationalPage() {
                                 borderRadius: "4px"
                               }}
                             >
-                              Cancelada
+                              Cancelada (Cobrar)
                             </span>
                           )}
                         </div>

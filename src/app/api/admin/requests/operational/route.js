@@ -79,7 +79,7 @@ export async function GET(req) {
       const requests = [];
       snap.forEach((doc) => {
         const data = doc.data();
-        if (data.approvalStatus === "authorized" || isCancelledAfter1745(data.period?.start, data.cancelledAt)) {
+        if (data.approvalStatus === "authorized" || (data.approvalStatus === "cancelled" && data.cancelBilling === true)) {
           requests.push({ id: doc.id, ...data });
         }
       });
@@ -95,9 +95,9 @@ export async function GET(req) {
         global.mockRequests = [];
       }
       
-      // Filter the global mock requests list for authorized or late cancelled ones
+      // Filter the global mock requests list for authorized or billed cancelled ones
       const operationalMocks = global.mockRequests.filter(
-        (r) => r.status === "confirmed" && (r.approvalStatus === "authorized" || (r.approvalStatus === "cancelled" && isCancelledAfter1745(r.period?.start, r.cancelledAt)))
+        (r) => r.status === "confirmed" && (r.approvalStatus === "authorized" || (r.approvalStatus === "cancelled" && r.cancelBilling === true))
       );
       operationalMocks.sort((a, b) => new Date(b.period?.start || 0) - new Date(a.period?.start || 0));
       

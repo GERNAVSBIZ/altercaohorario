@@ -440,10 +440,12 @@ export default function AdminPage() {
 
   // Handle request approval decision
   const handleApprove = async (id, decision) => {
+    let cancelBilling = false;
     if (decision === "cancelled") {
       if (!confirm("Tem certeza que deseja cancelar esta prorrogação de horário que já foi autorizada? Um e-mail de notificação será enviado ao operador.")) {
         return;
       }
+      cancelBilling = confirm("Esta solicitação CANCELADA gerou cobrança operacional? (Clique em OK para SIM / Cancelar para NÃO)");
     }
 
     let justification = "";
@@ -474,8 +476,9 @@ export default function AdminPage() {
               ...req,
               approvalStatus: decision,
               justification: justification || null,
+              cancelBilling: cancelBilling,
               ...(decision === "authorized" ? { authorizedAt: new Date().toISOString() } : {}),
-              ...(decision === "cancelled" ? { cancelledAt: new Date().toISOString() } : {})
+              ...(decision === "cancelled" ? { cancelledAt: new Date().toISOString(), cancelBilling } : {})
             };
           }
           return req;
@@ -491,7 +494,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/requests/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, decision, justification })
+        body: JSON.stringify({ id, decision, justification, cancelBilling })
       });
 
       const resData = await response.json();

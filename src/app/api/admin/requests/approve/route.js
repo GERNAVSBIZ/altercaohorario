@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req) {
   try {
-    const { id, decision, justification } = await req.json();
+    const { id, decision, justification, cancelBilling } = await req.json();
 
     if (!id || !["authorized", "not_authorized", "cancelled"].includes(decision)) {
       return NextResponse.json(
@@ -42,6 +42,7 @@ export async function POST(req) {
         updateData.authorizedAt = authorizedAt;
       } else if (decision === "cancelled") {
         updateData.cancelledAt = authorizedAt;
+        updateData.cancelBilling = cancelBilling || false;
       }
 
       await requestRef.update(updateData);
