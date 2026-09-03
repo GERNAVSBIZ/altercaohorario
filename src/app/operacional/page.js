@@ -108,7 +108,8 @@ import {
   CalendarDays,
   Download,
   Eye,
-  EyeOff
+  EyeOff,
+  Plus
 } from "lucide-react";
 
 // Helper to construct a boundary Date strictly in Brasília time (UTC-3)
@@ -403,6 +404,103 @@ export default function OperationalPage() {
     opNotes: "",
     opAttendances: []
   });
+
+  // Manual Request Creation Modal State
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState("");
+  const [manualForm, setManualForm] = useState({
+    aircraftRegistration: "",
+    aircraftTypeQty: "1",
+    companyName: "",
+    companyTaxId: "",
+    serviceType: "Geral (Executiva)",
+    flightDate: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+    startTime: "17:45",
+    endTime: "17:50",
+    intentionDecolagem: true,
+    intentionPouso: false,
+    intentionAlternativa: false,
+    opServedBy: "",
+    opBillingStatus: "Isento",
+    opNotes: ""
+  });
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    setManualError("");
+    setManualLoading(true);
+
+    try {
+      if (!manualForm.aircraftRegistration || !manualForm.flightDate || !manualForm.startTime || !manualForm.endTime) {
+        throw new Error("Por favor, preencha a matrícula, data e horários.");
+      }
+
+      const periodStartIso = combineBrasiliaDateTime(manualForm.flightDate, manualForm.startTime);
+      const periodEndIso = combineBrasiliaDateTime(manualForm.flightDate, manualForm.endTime);
+
+      if (!periodStartIso || !periodEndIso) {
+        throw new Error("Horários inválidos.");
+      }
+
+      const payload = {
+        aircraftRegistration: manualForm.aircraftRegistration.toUpperCase().trim(),
+        aircraftTypeQty: manualForm.aircraftTypeQty || "1",
+        companyName: manualForm.companyName.trim() || "Não Informado",
+        companyTaxId: manualForm.companyTaxId.trim() || "-",
+        serviceType: manualForm.serviceType,
+        periodStart: periodStartIso,
+        periodEnd: periodEndIso,
+        intentions: {
+          decolagem: manualForm.intentionDecolagem,
+          pouso: manualForm.intentionPouso,
+          alternativa: manualForm.intentionAlternativa
+        },
+        opServedBy: manualForm.opServedBy || "",
+        opBillingStatus: manualForm.opBillingStatus || "Isento",
+        opNotes: manualForm.opNotes || "",
+        notes: manualForm.opNotes || "Lançamento manual direto na estação."
+      };
+
+      const res = await fetch("/api/admin/requests/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao salvar prorrogação manual.");
+      }
+
+      setSuccessMsg("Prorrogação manual registrada com sucesso no sistema!");
+      setShowManualModal(false);
+      setManualForm({
+        aircraftRegistration: "",
+        aircraftTypeQty: "1",
+        companyName: "",
+        companyTaxId: "",
+        serviceType: "Geral (Executiva)",
+        flightDate: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+        startTime: "17:45",
+        endTime: "17:50",
+        intentionDecolagem: true,
+        intentionPouso: false,
+        intentionAlternativa: false,
+        opServedBy: "",
+        opBillingStatus: "Isento",
+        opNotes: ""
+      });
+
+      await fetchOperationalData();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      console.error("Manual submit error:", err);
+      setManualError(err.message || "Erro ao registrar prorrogação manual.");
+    } finally {
+      setManualLoading(false);
+    }
+  };
 
   // toLocalISOString removed in favor of module-level timezone-locked toBrasiliaISOString helper
 
@@ -1268,6 +1366,32 @@ export default function OperationalPage() {
             {viewMode === "full" ? <EyeOff size={16} style={{ color: "var(--accent)" }} /> : <Eye size={16} />}
             <span>{viewMode === "full" ? "Visualização Simplificada" : "Mostrar Todas Colunas"}</span>
           </button>
+
+          {/* Manual Entry Button */}
+          <button 
+            onClick={() => {
+              setManualError("");
+              setShowManualModal(true);
+            }}
+            className="btn"
+            style={{ 
+              height: "40px", 
+              padding: "0 16px", 
+              fontSize: "13px", 
+              display: "inline-flex", 
+              alignItems: "center", 
+              gap: "6px",
+              backgroundColor: "var(--accent)",
+              borderColor: "var(--accent)",
+              color: "white",
+              fontWeight: "600",
+              marginLeft: "auto"
+            }}
+            title="Lançar prorrogação/antecipação diretamente pela estação sem envio de e-mails"
+          >
+            <Plus size={16} />
+            <span>+ Registro Manual</span>
+          </button>
         </div>
 
         {/* Report Card */}
@@ -1380,6 +1504,22 @@ export default function OperationalPage() {
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                           <div style={{ fontWeight: 600, color: "white" }}>{req.company?.name}</div>
+                          {req.manualEntry && (
+                            <span 
+                              className="badge" 
+                              style={{ 
+                                fontSize: "9px", 
+                                padding: "2px 6px", 
+                                backgroundColor: "rgba(59, 130, 246, 0.15)", 
+                                color: "#60a5fa", 
+                                border: "1px solid rgba(59, 130, 246, 0.3)",
+                                borderRadius: "4px"
+                              }}
+                              title="Lançamento manual direto na estação"
+                            >
+                              Manual
+                            </span>
+                          )}
                           {req.approvalStatus === "cancelled" && (
                             <span 
                               className="badge" 
@@ -1888,6 +2028,276 @@ export default function OperationalPage() {
           </div>
         )}
       </main>
+
+      {/* MANUAL ENTRY MODAL */}
+      {showManualModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(10, 10, 10, 0.8)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "20px"
+        }}>
+          <div className="card" style={{
+            maxWidth: "600px",
+            width: "100%",
+            backgroundColor: "#16161a",
+            border: "1px solid rgba(239, 91, 37, 0.4)",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+            padding: "24px",
+            borderRadius: "8px",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
+              <h2 style={{
+                color: "white",
+                fontSize: "17px",
+                fontWeight: "bold",
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <Plane size={20} style={{ color: "var(--accent)" }} />
+                Novo Registro Manual de Prorrogação / Antecipação
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowManualModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-dark-muted)",
+                  cursor: "pointer",
+                  padding: "4px"
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: "12px", color: "var(--text-dark-muted)", marginTop: 0, marginBottom: "16px" }}>
+              Utilize este formulário para registrar prorrogações ou antecipações operacionais rápidas. <strong>Nenhum e-mail de confirmação será disparado.</strong>
+            </p>
+
+            {manualError && (
+              <div className="notification notification-error" style={{ marginBottom: "16px" }}>
+                <span>{manualError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleManualSubmit}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Matrícula da Aeronave *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: PT-XYZ"
+                    style={{ height: "38px", textTransform: "uppercase" }}
+                    value={manualForm.aircraftRegistration}
+                    onChange={e => setManualForm(prev => ({ ...prev, aircraftRegistration: e.target.value.toUpperCase() }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Empresa / Proprietário</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Aviação Executiva / Nome"
+                    style={{ height: "38px" }}
+                    value={manualForm.companyName}
+                    onChange={e => setManualForm(prev => ({ ...prev, companyName: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>CNPJ / CPF</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Opcional"
+                    style={{ height: "38px" }}
+                    value={manualForm.companyTaxId}
+                    onChange={e => setManualForm(prev => ({ ...prev, companyTaxId: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Espécie do Serviço</label>
+                  <select
+                    className="form-input"
+                    style={{ height: "38px", padding: "6px 12px" }}
+                    value={manualForm.serviceType}
+                    onChange={e => setManualForm(prev => ({ ...prev, serviceType: e.target.value }))}
+                  >
+                    <option value="Regular (CIA AÉREAS)">Regular (CIA AÉREAS)</option>
+                    <option value="Não Regular ( TAXI ÁEREO)">Não Regular ( TAXI ÁEREO)</option>
+                    <option value="Geral (Executiva)">Geral (Executiva)</option>
+                    <option value="Carga Aérea">Carga Aérea</option>
+                    <option value="Serviço de saúde (Aeromédico)">Serviço de saúde (Aeromédico)</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Data do Voo *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ height: "38px" }}
+                    value={manualForm.flightDate}
+                    onChange={e => setManualForm(prev => ({ ...prev, flightDate: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Horário Início *</label>
+                  <input
+                    type="time"
+                    className="form-input"
+                    style={{ height: "38px" }}
+                    value={manualForm.startTime}
+                    onChange={e => setManualForm(prev => ({ ...prev, startTime: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Horário Fim *</label>
+                  <input
+                    type="time"
+                    className="form-input"
+                    style={{ height: "38px" }}
+                    value={manualForm.endTime}
+                    onChange={e => setManualForm(prev => ({ ...prev, endTime: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Intenções de Voo */}
+              <div style={{ marginBottom: "14px" }}>
+                <label className="form-label" style={{ fontSize: "12px", marginBottom: "6px" }}>Intenção de Voo</label>
+                <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer", color: "var(--text-dark)" }}>
+                    <input
+                      type="checkbox"
+                      checked={manualForm.intentionDecolagem}
+                      onChange={e => setManualForm(prev => ({ ...prev, intentionDecolagem: e.target.checked }))}
+                    />
+                    Decolagem
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer", color: "var(--text-dark)" }}>
+                    <input
+                      type="checkbox"
+                      checked={manualForm.intentionPouso}
+                      onChange={e => setManualForm(prev => ({ ...prev, intentionPouso: e.target.checked }))}
+                    />
+                    Pouso
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer", color: "var(--text-dark)" }}>
+                    <input
+                      type="checkbox"
+                      checked={manualForm.intentionAlternativa}
+                      onChange={e => setManualForm(prev => ({ ...prev, intentionAlternativa: e.target.checked }))}
+                    />
+                    Alternativa
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Operador do Turno (PNA/OEA)</label>
+                  <select
+                    className="form-input"
+                    style={{ height: "38px", padding: "6px 12px" }}
+                    value={manualForm.opServedBy}
+                    onChange={e => setManualForm(prev => ({ ...prev, opServedBy: e.target.value }))}
+                  >
+                    <option value="">Selecione um operador...</option>
+                    {operators.map((op, idx) => (
+                      <option key={idx} value={op}>{op}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: "12px" }}>Cobrança</label>
+                  <select
+                    className="form-input"
+                    style={{ height: "38px", padding: "6px 12px" }}
+                    value={manualForm.opBillingStatus}
+                    onChange={e => setManualForm(prev => ({ ...prev, opBillingStatus: e.target.value }))}
+                  >
+                    <option value="Isento">Isento</option>
+                    <option value="Não">Não (A faturar)</option>
+                    <option value="Sim">Sim (Já cobrado)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label className="form-label" style={{ fontSize: "12px" }}>Observações Operacionais</label>
+                <textarea
+                  className="form-input"
+                  style={{ height: "60px", padding: "8px 12px", fontSize: "12.5px" }}
+                  placeholder="Ex: Aeronave decolou 17:50 com 5 min de prorrogação."
+                  value={manualForm.opNotes}
+                  onChange={e => setManualForm(prev => ({ ...prev, opNotes: e.target.value }))}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowManualModal(false)}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "white",
+                    padding: "8px 16px",
+                    fontSize: "13px"
+                  }}
+                  disabled={manualLoading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  style={{
+                    backgroundColor: "var(--accent)",
+                    borderColor: "var(--accent)",
+                    color: "white",
+                    padding: "8px 20px",
+                    fontSize: "13px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                  disabled={manualLoading}
+                >
+                  {manualLoading ? <span className="spinner" style={{ width: "14px", height: "14px" }} /> : <Check size={14} />}
+                  <span>Salvar Registro</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }
