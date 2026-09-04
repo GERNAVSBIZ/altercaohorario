@@ -547,9 +547,9 @@ export async function sendOperatorDecisionEmail({ email, name, requestData, deci
       ` : ''}
 
       ${justification ? `
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #64748b; padding: 15px; margin: 20px 0; border-radius: 4px; color: #334155; font-size: 13.5px; line-height: 1.5;">
-        <strong>Justificativa/Observação da Gerência:</strong><br/>
-        <span style="font-style: italic;">"${justification}"</span>
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #64748b; padding: 15px; margin: 20px 0; border-radius: 4px; color: #334155; font-size: 13.5px; line-height: 1.6;">
+        <strong style="color: #0b3c5d;">Justificativa / Fundamentação da Decisão:</strong><br/>
+        <div style="margin-top: 8px; white-space: pre-line; color: #1e293b;">${justification}</div>
       </div>
       ` : ''}
 

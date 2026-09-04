@@ -27,6 +27,9 @@ import {
   Plus
 } from "lucide-react";
 
+const DEFAULT_REJECTION_JUSTIFICATION = `Em cumprimento ao que preconiza o item 15.3.3.4 do MCA 102-7 (Manual do Serviço de Telecomunicações do Comando da Aeronáutica), informamos a impossibilidade operacional e administrativa no atendimento ao pleito, com base nos seguintes fundamentos regulamentares:
+a) Limites de Jornada e Regime de Escala (MCA 102-7, item 15.4 e ICA 63-33).`;
+
 export default function AdminPage() {
   const router = useRouter();
   
@@ -48,6 +51,97 @@ export default function AdminPage() {
   const [emailLogs, setEmailLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [emailLogsSearch, setEmailLogsSearch] = useState("");
+
+  // Rejection Modal State
+  const [rejectionModal, setRejectionModal] = useState({
+    isOpen: false,
+    request: null,
+    justification: DEFAULT_REJECTION_JUSTIFICATION,
+    useDefault: true
+  });
+
+  const handleOpenRejection = (req) => {
+    setRejectionModal({
+      isOpen: true,
+      request: req,
+      justification: DEFAULT_REJECTION_JUSTIFICATION,
+      useDefault: true
+    });
+  };
+
+  const handleCloseRejection = () => {
+    setRejectionModal({
+      isOpen: false,
+      request: null,
+      justification: DEFAULT_REJECTION_JUSTIFICATION,
+      useDefault: true
+    });
+  };
+
+  const handleToggleDefaultRejection = (checked) => {
+    setRejectionModal(prev => ({
+      ...prev,
+      useDefault: checked,
+      justification: checked ? DEFAULT_REJECTION_JUSTIFICATION : ""
+    }));
+  };
+
+  const handleConfirmRejection = async (e) => {
+    if (e) e.preventDefault();
+    if (!rejectionModal.justification || !rejectionModal.justification.trim()) {
+      alert("A justificativa é obrigatória para recusar a solicitação.");
+      return;
+    }
+
+    const id = rejectionModal.request?.id;
+    if (!id) return;
+
+    setSuccessMsg("");
+    setErrorMsg("");
+    setLoading(true);
+
+    try {
+      if (isMock) {
+        setRequests(prev => prev.map(req => {
+          if (req.id === id) {
+            return {
+              ...req,
+              approvalStatus: "not_authorized",
+              justification: rejectionModal.justification.trim()
+            };
+          }
+          return req;
+        }));
+        setSuccessMsg("[SIMULAÇÃO] Solicitação recusada com sucesso!");
+        handleCloseRejection();
+        setTimeout(() => setSuccessMsg(""), 4000);
+        return;
+      }
+
+      const response = await fetch("/api/admin/requests/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          decision: "not_authorized",
+          justification: rejectionModal.justification.trim()
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || "Erro ao registrar decisão do administrador.");
+
+      setSuccessMsg(resData.message || "Solicitação recusada com sucesso.");
+      handleCloseRejection();
+      await fetchData();
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      console.error("Rejection error:", err);
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Settings State
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -539,6 +633,14 @@ export default function AdminPage() {
 
   // Handle request approval decision
   const handleApprove = async (id, decision) => {
+    if (decision === "not_authorized") {
+      const targetReq = requests.find(r => r.id === id);
+      if (targetReq) {
+        handleOpenRejection(targetReq);
+        return;
+      }
+    }
+
     let cancelBilling = false;
     if (decision === "cancelled") {
       if (!confirm("Tem certeza que deseja cancelar esta prorrogação de horário que já foi autorizada? Um e-mail de notificação será enviado ao operador.")) {
@@ -548,15 +650,7 @@ export default function AdminPage() {
     }
 
     let justification = "";
-    if (decision === "not_authorized") {
-      const input = window.prompt("Justificativa da RECUSA (OBRIGATÓRIA):");
-      if (input === null) return; // User cancelled
-      if (!input.trim()) {
-        alert("A justificativa é obrigatória para recusar a solicitação.");
-        return;
-      }
-      justification = input.trim();
-    } else if (decision === "authorized") {
+    if (decision === "authorized") {
       const input = window.prompt("Mensagem complementar / Observações (OPCIONAL):");
       if (input === null) return; // User cancelled
       justification = input.trim();
@@ -1075,7 +1169,14 @@ export default function AdminPage() {
                             <span className="badge badge-success">Autorizado</span>
                           )}
                           {req.approvalStatus === "not_authorized" && (
-                            <span className="badge badge-danger">Recusado</span>
+                            <div>
+                              <span className="badge badge-danger">Recusado</span>
+                              {req.justification && (
+                                <div style={{ fontSize: "10px", color: "var(--text-dark-muted)", marginTop: "3px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.justification}>
+                                  {req.justification}
+                                </div>
+                              )}
+                            </div>
                           )}
                           {req.approvalStatus === "cancelled" && (
                             <span className="badge badge-warning" style={{ backgroundColor: "#e8590c", color: "white" }}>Cancelada</span>
@@ -1159,7 +1260,7 @@ export default function AdminPage() {
                                   <Check size={12} />
                                 </button>
                                 <button 
-                                  onClick={() => handleApprove(req.id, "not_authorized")}
+                                  onClick={() => handleOpenRejection(req)}
                                   className="admin-action-btn btn-reject"
                                   style={{ padding: "6px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                                   title="Recusar Horário"
@@ -2240,6 +2341,183 @@ export default function AdminPage() {
                 >
                   {manualLoading ? <span className="spinner" style={{ width: "14px", height: "14px" }} /> : <Check size={14} />}
                   <span>Salvar Registro</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REJECTION JUSTIFICATION MODAL */}
+      {rejectionModal.isOpen && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(10, 10, 10, 0.8)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "20px"
+        }}>
+          <div className="card" style={{
+            maxWidth: "640px",
+            width: "100%",
+            backgroundColor: "#16161a",
+            border: "1px solid rgba(239, 68, 68, 0.4)",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+            padding: "24px",
+            borderRadius: "8px",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
+              <h2 style={{
+                color: "white",
+                fontSize: "17px",
+                fontWeight: "bold",
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <AlertTriangle size={20} style={{ color: "#ef4444" }} />
+                Recusar Solicitação de Alteração de Horário
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseRejection}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-dark-muted)",
+                  cursor: "pointer",
+                  padding: "4px"
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {rejectionModal.request && (
+              <div style={{
+                backgroundColor: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "6px",
+                padding: "12px 16px",
+                marginBottom: "16px",
+                fontSize: "13px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ color: "var(--text-dark-muted)" }}>Solicitação:</span>
+                  <strong style={{ color: "white" }}>#{rejectionModal.request.id?.slice(-6).toUpperCase()}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ color: "var(--text-dark-muted)" }}>Empresa / Solicitante:</span>
+                  <strong style={{ color: "white" }}>{rejectionModal.request.company?.name || rejectionModal.request.requestor?.name}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-dark-muted)" }}>Aeronave:</span>
+                  <strong style={{ color: "var(--accent)" }}>{rejectionModal.request.aircraft?.registration || "-"}</strong>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmRejection}>
+              {/* Opção predefinida / padrão */}
+              <div style={{
+                backgroundColor: "rgba(239, 68, 68, 0.08)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+                borderRadius: "6px",
+                padding: "12px 14px",
+                marginBottom: "14px"
+              }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer", fontSize: "13px", color: "white", fontWeight: "600" }}>
+                  <input
+                    type="checkbox"
+                    checked={rejectionModal.useDefault}
+                    onChange={e => handleToggleDefaultRejection(e.target.checked)}
+                    style={{ marginTop: "3px", accentColor: "#ef4444" }}
+                  />
+                  <div>
+                    <span>Utilizar justificativa padrão regulamentar (MCA 102-7)</span>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-dark-muted)", fontWeight: "normal", marginTop: "2px" }}>
+                      Preenche automaticamente com o texto de impossibilidade operacional / limites de jornada.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label className="form-label" style={{ fontSize: "12px", marginBottom: "6px" }}>
+                  Texto da Justificativa para Envio ao Solicitante *
+                </label>
+                <textarea
+                  className="form-input"
+                  style={{
+                    height: "130px",
+                    padding: "10px 12px",
+                    fontSize: "13px",
+                    lineHeight: "1.5",
+                    fontFamily: "inherit"
+                  }}
+                  placeholder="Informe o motivo da recusa regulamentar..."
+                  value={rejectionModal.justification}
+                  onChange={e => setRejectionModal(prev => ({ ...prev, justification: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div style={{
+                fontSize: "12px",
+                color: "var(--text-dark-muted)",
+                backgroundColor: "rgba(255,255,255,0.02)",
+                padding: "10px 12px",
+                borderRadius: "6px",
+                marginBottom: "20px",
+                lineHeight: "1.4"
+              }}>
+                ℹ️ Esta justificativa constará no registro do sistema e será enviada automaticamente no e-mail de notificação de recusa para <strong>{rejectionModal.request?.company?.email || rejectionModal.request?.requestor?.billingEmail || "o operador"}</strong>.
+              </div>
+
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleCloseRejection}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "white",
+                    padding: "8px 16px",
+                    fontSize: "13px"
+                  }}
+                  disabled={loading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  style={{
+                    backgroundColor: "#ef4444",
+                    borderColor: "#ef4444",
+                    color: "white",
+                    padding: "8px 20px",
+                    fontSize: "13px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontWeight: "600"
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? <span className="spinner" style={{ width: "14px", height: "14px" }} /> : <X size={14} />}
+                  <span>Confirmar Recusa e Notificar</span>
                 </button>
               </div>
             </form>
